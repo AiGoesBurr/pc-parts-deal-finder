@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>{{ meta.title }}</h2>
   <div>
-    <a class="btn btn-sm btn-outline-light" href="/export/{{ cat }}.csv">Export CSV</a>
+    <a class="btn btn-sm btn-primary" href="/export/{{ cat }}.csv">Export CSV</a>
   </div>
 </div>
 <div class="card p-3 mb-3 filter-bar">
@@ -39,9 +39,9 @@
   </table>
 </div>
 <div class="d-flex justify-content-between align-items-center mt-2">
-  <button class="btn btn-sm btn-outline-light" id="prev">Prev</button>
+  <button class="btn btn-sm btn-primary" id="prev">Prev</button>
   <span class="muted small" id="pageinfo"></span>
-  <button class="btn btn-sm btn-outline-light" id="next">Next</button>
+  <button class="btn btn-sm btn-primary" id="next">Next</button>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -67,9 +67,9 @@ const COLUMNS = {
 
 function buyLinks(name){
   const q = encodeURIComponent(name);
-  return `<a href="https://www.amazon.com/s?k=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light me-1">Amazon</a>` +
-         `<a href="https://www.newegg.com/p/pl?d=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light me-1">Newegg</a>` +
-         `<a href="https://www.bhphotovideo.com/c/search?Ntt=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light">B&H</a>`;
+  return `<a href="https://www.amazon.com/s?k=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-primary me-1">Amazon</a>` +
+         `<a href="https://www.newegg.com/p/pl?d=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-success me-1">Newegg</a>` +
+         `<a href="https://www.bhphotovideo.com/c/search?Ntt=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-info">B&H</a>`;
 }
 
 function fmt(v){
