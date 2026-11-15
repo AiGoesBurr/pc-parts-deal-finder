@@ -21,6 +21,19 @@ Then open http://127.0.0.1:5000
 On first run the app scrapes all sources (may take ~2-3 minutes) and caches to `data/cache.json`.
 Use "Refresh data" in the navbar (or `/refresh`) to re-scrape.
 
+## How "Value" is calculated
+
+Higher Value = better bang for your buck. Rows are sorted by Value descending by default.
+
+- **CPU**: CPU Mark ÷ price (PassMark CPU Value) — more benchmark performance per dollar.
+- **GPU**: G3D Mark ÷ price — more graphics performance per dollar.
+- **RAM**: 1 ÷ price per GB — cheaper per gigabyte.
+- **Storage**: 1 ÷ price per GB — cheaper per gigabyte.
+- **PSU**: watts ÷ price — more power per dollar.
+- **Motherboard / Case / Cooler**: 1 ÷ price — cheaper.
+
+Entries with no price get a null Value and sort to the bottom.
+
 ## Features
 
 - Dashboard with top value picks per category.
