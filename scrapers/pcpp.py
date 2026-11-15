@@ -78,7 +78,6 @@ def scrape_parts(region="us"):
             d["capacity_gb"] = round(ms * nm, 2)
         if d["price_per_gb"] is None and d["price"] and d["capacity_gb"]:
             d["price_per_gb"] = round(d["price"] / d["capacity_gb"], 4)
-        # value metric: lower price_per_gb better; compute score = 1/price_per_gb
         if d["price_per_gb"]:
             d["value"] = round(1.0 / d["price_per_gb"], 4)
         else:
@@ -165,3 +164,11 @@ def scrape_parts(region="us"):
         result["cooler"].append(d)
 
     return result
+
+def scrape_cpu_cores(region="us"):
+    api = API(region)
+    data = api.retrieve("cpu")
+    out = []
+    for p in data.get("cpu", []):
+        out.append({"name": f"{p.brand} {p.model}".strip(), "cores": getattr(p, "cores", None), "price": _money(getattr(p, "price", None))})
+    return out

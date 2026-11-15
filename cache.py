@@ -44,6 +44,35 @@ def get_data(force=False):
     except Exception as e:
         payload["cpus"] = []
         payload["cpu_error"] = str(e)
+    # merge core counts from PCPartPicker where possible
+    try:
+        from scrapers.pcpp import scrape_cpu_cores
+        import re
+        def _norm(n):
+            n = (n or "").lower()
+            n = re.sub(r"@\s*[\d\.]+\s*ghz", "", n)
+            n = re.sub(r"\s+", " ", n).strip()
+            return n
+        def _token(n):
+            toks = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", n or "")
+            cand = [t for t in toks if any(c.isdigit() for c in t)]
+            return max(cand, key=len).lower() if cand else None
+        core_map = {}
+        for item in scrape_cpu_cores():
+            nm = _norm(item.get("name"))
+            core_map[nm] = item.get("cores")
+            t = _token(item.get("name"))
+            if t:
+                core_map.setdefault(t, item.get("cores"))
+        for c in payload.get("cpus", []):
+            if c.get("cores") is not None:
+                continue
+            cores = core_map.get(_norm(c.get("name")))
+            if cores is None:
+                cores = core_map.get(_token(c.get("name")))
+            c["cores"] = cores
+    except Exception as e:
+        payload["cpu_core_error"] = str(e)
     try:
         payload["gpus"] = scrape_gpus()
     except Exception as e:

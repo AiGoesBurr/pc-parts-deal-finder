@@ -57,6 +57,7 @@ def scrape_cpus():
             items.append({
                 "name": name,
                 "brand": brand,
+                "cores": None,
                 "mark": mark,
                 "rank": rank,
                 "value": value,

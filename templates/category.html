@@ -29,7 +29,12 @@
       <select id="brand" class="form-select"><option value="">All brands</option></select>
     </div>
   </div>
-  <div class="row g-2 mt-1" id="extraFilters"></div>
+  <div class="row g-2 mt-1" id="extraFilters">
+    {% if cat == 'cpu' %}
+    <div class="col-md-2"><input id="minCores" class="form-control" type="number" step="1" placeholder="Min cores"></div>
+    <div class="col-md-2"><input id="maxCores" class="form-control" type="number" step="1" placeholder="Max cores"></div>
+    {% endif %}
+  </div>
 </div>
 <div class="muted small mb-2" id="count"></div>
 <div class="table-responsive">
@@ -55,7 +60,7 @@ let sortKey = "value";
 let sortOrder = "desc";
 
 const COLUMNS = {
-  cpu: ["name","brand","mark","rank","price","value","buy"],
+  cpu: ["name","brand","cores","mark","rank","price","value","buy"],
   gpu: ["name","brand","score","price","value","buy"],
   memory: ["name","brand","module_type","capacity_gb","price_per_gb","price","value","buy"],
   storage: ["name","brand","storage_type","capacity_gb","price_per_gb","price","value","buy"],
@@ -90,6 +95,10 @@ async function loadData(){
   if (minP) params.set("min_price", minP);
   const maxP = document.getElementById("maxPrice").value.trim();
   if (maxP) params.set("max_price", maxP);
+  const minC = document.getElementById("minCores");
+  if (minC && minC.value.trim()) params.set("min_cores", minC.value.trim());
+  const maxC = document.getElementById("maxCores");
+  if (maxC && maxC.value.trim()) params.set("max_cores", maxC.value.trim());
   const brand = document.getElementById("brand").value;
   if (brand) params.set("filter_brand", brand);
   const res = await fetch("/api/data/"+CAT+"?"+params.toString());
@@ -125,6 +134,10 @@ function render(){
 document.getElementById("q").addEventListener("input", ()=>{ page=0; loadData(); });
 document.getElementById("minPrice").addEventListener("input", ()=>{ page=0; loadData(); });
 document.getElementById("maxPrice").addEventListener("input", ()=>{ page=0; loadData(); });
+const _minC = document.getElementById("minCores");
+if (_minC) _minC.addEventListener("input", ()=>{ page=0; loadData(); });
+const _maxC = document.getElementById("maxCores");
+if (_maxC) _maxC.addEventListener("input", ()=>{ page=0; loadData(); });
 document.getElementById("brand").addEventListener("change", ()=>{ page=0; loadData(); });
 document.getElementById("sort").addEventListener("change", (e)=>{ sortKey=e.target.value; page=0; loadData(); });
 document.getElementById("order").addEventListener("change", (e)=>{ sortOrder=e.target.value; page=0; loadData(); });

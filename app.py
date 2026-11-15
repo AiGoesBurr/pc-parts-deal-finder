@@ -74,6 +74,21 @@ def api_data(cat):
             rows = [r for r in rows if (r.get("price") is not None) and r.get("price") <= mx]
     except ValueError:
         pass
+    # cores range (cpu)
+    min_cores = request.args.get("min_cores")
+    max_cores = request.args.get("max_cores")
+    try:
+        if min_cores not in (None, ""):
+            mn = int(min_cores)
+            rows = [r for r in rows if (r.get("cores") is not None) and r.get("cores") >= mn]
+    except ValueError:
+        pass
+    try:
+        if max_cores not in (None, ""):
+            mx = int(max_cores)
+            rows = [r for r in rows if (r.get("cores") is not None) and r.get("cores") <= mx]
+    except ValueError:
+        pass
     # filters
     for f in request.args:
         if f.startswith("filter_"):
