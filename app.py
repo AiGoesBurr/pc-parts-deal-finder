@@ -59,6 +59,21 @@ def api_data(cat):
     q = (request.args.get("q") or "").strip().lower()
     if q:
         rows = [r for r in rows if q in (r.get("name") or "").lower() or q in (r.get("brand") or "").lower() or q in str(r.get("model") or "").lower()]
+    # price range
+    min_price = request.args.get("min_price")
+    max_price = request.args.get("max_price")
+    try:
+        if min_price not in (None, ""):
+            mn = float(min_price)
+            rows = [r for r in rows if (r.get("price") is not None) and r.get("price") >= mn]
+    except ValueError:
+        pass
+    try:
+        if max_price not in (None, ""):
+            mx = float(max_price)
+            rows = [r for r in rows if (r.get("price") is not None) and r.get("price") <= mx]
+    except ValueError:
+        pass
     # filters
     for f in request.args:
         if f.startswith("filter_"):
@@ -168,6 +183,17 @@ def fetch_deals():
 @app.route("/deals")
 def deals():
     return render_template("deals.html", deals=fetch_deals(), cats=CATS)
+
+@app.route("/search")
+def search():
+    q = (request.args.get("q") or "").strip().lower()
+    results = {}
+    if q:
+        for cat, meta in CATS.items():
+            rows = [r for r in _rows(cat) if q in (r.get("name") or "").lower() or q in (r.get("brand") or "").lower() or q in str(r.get("model") or "").lower()]
+            if rows:
+                results[cat] = (meta, rows[:60])
+    return render_template("search.html", q=request.args.get("q") or "", results=results, cats=CATS)
 
 if __name__ == "__main__":
     # warm cache

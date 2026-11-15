@@ -9,21 +9,23 @@
 </div>
 <div class="card p-3 mb-3 filter-bar">
   <div class="row g-2">
-    <div class="col-md-4"><input id="q" class="form-control" placeholder="Search name/brand..."></div>
-    <div class="col-md-3">
+    <div class="col-md-3"><input id="q" class="form-control" placeholder="Search name/brand..."></div>
+    <div class="col-md-2"><input id="minPrice" class="form-control" type="number" step="0.01" placeholder="Min price"></div>
+    <div class="col-md-2"><input id="maxPrice" class="form-control" type="number" step="0.01" placeholder="Max price"></div>
+    <div class="col-md-2">
       <select id="sort" class="form-select">
         <option value="value">Sort by value</option>
         <option value="price">Price</option>
         <option value="name">Name</option>
       </select>
     </div>
-    <div class="col-md-2">
+    <div class="col-md-1">
       <select id="order" class="form-select">
         <option value="desc">Desc</option>
         <option value="asc">Asc</option>
       </select>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <select id="brand" class="form-select"><option value="">All brands</option></select>
     </div>
   </div>
@@ -84,6 +86,10 @@ async function loadData(){
   params.set("limit", "100000");
   const q = document.getElementById("q").value.trim();
   if (q) params.set("q", q);
+  const minP = document.getElementById("minPrice").value.trim();
+  if (minP) params.set("min_price", minP);
+  const maxP = document.getElementById("maxPrice").value.trim();
+  if (maxP) params.set("max_price", maxP);
   const brand = document.getElementById("brand").value;
   if (brand) params.set("filter_brand", brand);
   const res = await fetch("/api/data/"+CAT+"?"+params.toString());
@@ -117,6 +123,8 @@ function render(){
 }
 
 document.getElementById("q").addEventListener("input", ()=>{ page=0; loadData(); });
+document.getElementById("minPrice").addEventListener("input", ()=>{ page=0; loadData(); });
+document.getElementById("maxPrice").addEventListener("input", ()=>{ page=0; loadData(); });
 document.getElementById("brand").addEventListener("change", ()=>{ page=0; loadData(); });
 document.getElementById("sort").addEventListener("change", (e)=>{ sortKey=e.target.value; page=0; loadData(); });
 document.getElementById("order").addEventListener("change", (e)=>{ sortOrder=e.target.value; page=0; loadData(); });

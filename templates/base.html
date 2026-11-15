@@ -27,6 +27,10 @@
     <a class="navbar-brand" href="/">PC Parts Deal Finder</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="nav">
+      <form class="d-flex me-3" action="/search" method="get">
+        <input class="form-control form-control-sm me-2" type="search" name="q" placeholder="Search components..." aria-label="Search">
+        <button class="btn btn-sm btn-outline-light" type="submit">Search</button>
+      </form>
       <ul class="navbar-nav me-auto">
         <li class="nav-item"><a class="nav-link" href="/">Dashboard</a></li>
         {% for k, m in cats.items() %}

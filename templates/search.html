@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Search - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<h2>Search results for "{{ q }}"</h2>
+{% if not results %}
+<p class="muted">No matching components found.</p>
+{% else %}
+{% for cat, (meta, rows) in results.items() %}
+<div class="card p-3 mb-3">
+  <h5>{{ meta.title }} <span class="muted small">({{ rows|length }} shown)</span></h5>
+  <table class="table table-sm">
+    <thead><tr><th>Name</th><th>Brand</th><th>Price</th><th>Value</th><th></th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="small">{{ r.name }}</td>
+        <td>{{ r.brand }}</td>
+        <td>${{ r.price }}</td>
+        <td>{{ r.value }}</td>
+        <td><a href="/category/{{ cat }}" class="small">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
