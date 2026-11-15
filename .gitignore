@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Cache / runtime
+data/cache.json
+run.log
+run.err
+
+# Temp
+*.tmp

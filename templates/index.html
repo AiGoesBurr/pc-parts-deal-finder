@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<div class="hero mb-4 rounded">
+  <div class="container">
+    <h1 class="display-6">Best bang-for-your-buck PC parts</h1>
+    <p class="muted">Aggregated from reliable sources: PassMark CPU/GPU benchmarks and PCPartPicker price data.</p>
+    <div class="row g-3 mt-2">
+      {% for k, m in cats.items() %}
+      <div class="col-6 col-md-3 col-lg-2">
+        <a href="/category/{{ k }}" class="text-decoration-none">
+          <div class="card p-3 text-center h-100">
+            <div class="stat">{{ info.counts.get(m.key, 0) }}</div>
+            <div class="muted small">{{ m.title }}</div>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="muted small mt-3">Last updated: {{ info.saved_at or 'never' }}</div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h5>Top CPU value <span class="muted small">(PassMark CPU Mark / price)</span></h5>
+      <table class="table table-sm">
+        <thead><tr><th>CPU</th><th>Mark</th><th>Price</th><th>Value</th></tr></thead>
+        <tbody>
+        {% for r in top_cpu %}
+        <tr><td>{{ r.name }}</td><td>{{ r.mark }}</td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <a href="/category/cpu" class="small">View all &rarr;</a>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h5>Top GPU value <span class="muted small">(PassMark G3D Mark / price)</span></h5>
+      <table class="table table-sm">
+        <thead><tr><th>GPU</th><th>Score</th><th>Price</th><th>Value</th></tr></thead>
+        <tbody>
+        {% for r in top_gpu %}
+        <tr><td>{{ r.name }}</td><td>{{ r.score }}</td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <a href="/category/gpu" class="small">View all &rarr;</a>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-3">
+      <h5>Cheapest RAM ($/GB)</h5>
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>$/GB</th><th>Cap</th></tr></thead>
+        <tbody>
+        {% for r in top_mem %}
+        <tr><td class="small">{{ r.name }}</td><td>{{ r.price_per_gb }}</td><td>{{ r.capacity_gb }}GB</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <a href="/category/memory" class="small">View all &rarr;</a>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-3">
+      <h5>Cheapest storage ($/GB)</h5>
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>$/GB</th><th>Type</th></tr></thead>
+        <tbody>
+        {% for r in top_stor %}
+        <tr><td class="small">{{ r.name }}</td><td>{{ r.price_per_gb }}</td><td>{{ r.storage_type }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <a href="/category/storage" class="small">View all &rarr;</a>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-3">
+      <h5>Best PSU ($/W)</h5>
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>$/W</th><th>W</th></tr></thead>
+        <tbody>
+        {% for r in top_psu %}
+        <tr><td class="small">{{ r.name }}</td><td>{{ r.price_per_watt }}</td><td>{{ r.wattage }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <a href="/category/psu" class="small">View all &rarr;</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

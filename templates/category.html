@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{{ meta.title }} - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>{{ meta.title }}</h2>
+  <div>
+    <a class="btn btn-sm btn-outline-light" href="/export/{{ cat }}.csv">Export CSV</a>
+  </div>
+</div>
+<div class="card p-3 mb-3 filter-bar">
+  <div class="row g-2">
+    <div class="col-md-4"><input id="q" class="form-control" placeholder="Search name/brand..."></div>
+    <div class="col-md-3">
+      <select id="sort" class="form-select">
+        <option value="value">Sort by value</option>
+        <option value="price">Price</option>
+        <option value="name">Name</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select id="order" class="form-select">
+        <option value="desc">Desc</option>
+        <option value="asc">Asc</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select id="brand" class="form-select"><option value="">All brands</option></select>
+    </div>
+  </div>
+  <div class="row g-2 mt-1" id="extraFilters"></div>
+</div>
+<div class="muted small mb-2" id="count"></div>
+<div class="table-responsive">
+  <table class="table table-sm table-hover" id="tbl">
+    <thead id="thead"></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+<div class="d-flex justify-content-between align-items-center mt-2">
+  <button class="btn btn-sm btn-outline-light" id="prev">Prev</button>
+  <span class="muted small" id="pageinfo"></span>
+  <button class="btn btn-sm btn-outline-light" id="next">Next</button>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const CAT = "{{ cat }}";
+const META = {{ meta|tojson }};
+let allRows = [];
+let page = 0;
+const PAGE_SIZE = 100;
+let sortKey = "value";
+let sortOrder = "desc";
+
+const COLUMNS = {
+  cpu: ["name","brand","mark","rank","price","value","buy"],
+  gpu: ["name","brand","score","price","value","buy"],
+  memory: ["name","brand","module_type","capacity_gb","price_per_gb","price","value","buy"],
+  storage: ["name","brand","storage_type","capacity_gb","price_per_gb","price","value","buy"],
+  psu: ["name","brand","wattage","efficiency","price_per_watt","price","value","buy"],
+  motherboard: ["name","brand","socket","form_factor","max_ram_gb","price","value","buy"],
+  case: ["name","brand","form_factor","color","price","value","buy"],
+  cooler: ["name","brand","radiator_size","decibels","price","value","buy"],
+};
+
+function buyLinks(name){
+  const q = encodeURIComponent(name);
+  return `<a href="https://www.amazon.com/s?k=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light me-1">Amazon</a>` +
+         `<a href="https://www.newegg.com/p/pl?d=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light me-1">Newegg</a>` +
+         `<a href="https://www.bhphotovideo.com/c/search?Ntt=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light">B&H</a>`;
+}
+
+function fmt(v){
+  if (v === null || v === undefined) return "";
+  if (typeof v === "object") return JSON.stringify(v);
+  if (typeof v === "number") return (Math.round(v*100)/100);
+  return v;
+}
+
+async function loadData(){
+  const params = new URLSearchParams();
+  params.set("sort", sortKey);
+  params.set("order", sortOrder);
+  params.set("limit", "100000");
+  const q = document.getElementById("q").value.trim();
+  if (q) params.set("q", q);
+  const brand = document.getElementById("brand").value;
+  if (brand) params.set("filter_brand", brand);
+  const res = await fetch("/api/data/"+CAT+"?"+params.toString());
+  const j = await res.json();
+  allRows = j.rows;
+  render();
+}
+
+function render(){
+  const cols = COLUMNS[CAT];
+  const thead = document.getElementById("thead");
+  thead.innerHTML = "<tr>" + cols.map(c=>`<th style="cursor:pointer" data-col="${c}">${c==="buy"?"Buy":c.replace(/_/g," ")}</th>`).join("") + "</tr>";
+  const tbody = document.getElementById("tbody");
+  const start = page*PAGE_SIZE;
+  const slice = allRows.slice(start, start+PAGE_SIZE);
+  tbody.innerHTML = slice.map(r => "<tr>" + cols.map(c=> c==="buy" ? `<td>${buyLinks(r.name)}</td>` : `<td>${fmt(r[c])}</td>`).join("") + "</tr>").join("");
+  document.getElementById("count").textContent = allRows.length + " rows";
+  document.getElementById("pageinfo").textContent = `Page ${page+1} of ${Math.max(1, Math.ceil(allRows.length/PAGE_SIZE))}`;
+  // click sort
+  thead.querySelectorAll("th").forEach(th=>{
+    th.onclick = () => {
+      const c = th.dataset.col;
+      if (c === "buy") return;
+      if (sortKey === c) sortOrder = sortOrder === "desc" ? "asc" : "desc";
+      else { sortKey = c; sortOrder = "desc"; }
+      document.getElementById("sort").value = sortKey;
+      document.getElementById("order").value = sortOrder;
+      loadData();
+    };
+  });
+}
+
+document.getElementById("q").addEventListener("input", ()=>{ page=0; loadData(); });
+document.getElementById("brand").addEventListener("change", ()=>{ page=0; loadData(); });
+document.getElementById("sort").addEventListener("change", (e)=>{ sortKey=e.target.value; page=0; loadData(); });
+document.getElementById("order").addEventListener("change", (e)=>{ sortOrder=e.target.value; page=0; loadData(); });
+document.getElementById("prev").onclick = ()=>{ if(page>0){page--; render();} };
+document.getElementById("next").onclick = ()=>{ if((page+1)*PAGE_SIZE < allRows.length){page++; render();} };
+
+// populate brands
+fetch("/api/meta/"+CAT).then(r=>r.json()).then(j=>{
+  const sel = document.getElementById("brand");
+  (j.brand||[]).forEach(b=>{ const o=document.createElement("option"); o.value=b; o.textContent=b; sel.appendChild(o); });
+});
+
+loadData();
+</script>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}PC Deals - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<h2>PC hardware deals</h2>
+<p class="muted">Live deals from Slickdeals (computers forum), filtered to PC parts.</p>
+{% if not deals %}
+<p class="muted">No matching deals right now.</p>
+{% else %}
+<div class="row g-3">
+  {% for d in deals %}
+  <div class="col-md-6">
+    <div class="card p-3 h-100">
+      <a href="{{ d.link }}" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">{{ d.title }}</a>
+      <p class="muted small mt-2">{{ d.desc[:220] }}</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

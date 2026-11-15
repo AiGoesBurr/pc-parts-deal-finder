@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Sources - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<h2>Reliable sources</h2>
+<p class="muted">This app aggregates from the following sources.</p>
+<ul>
+  <li><strong>PassMark CPU Benchmarks</strong> (cpubenchmark.net) — CPU Mark scores, prices, CPU Value. Intel &amp; AMD lists.</li>
+  <li><strong>PassMark Video Card Benchmarks</strong> (videocardbenchmark.net) — G3D Mark scores, prices, GPU value across tier pages.</li>
+  <li><strong>PCPartPicker</strong> (via pcpartpicker community mirror) — Memory, storage, PSU, motherboard, case, cooler prices &amp; specs.</li>
+</ul>
+<h4>Cache status</h4>
+<p>Last updated: {{ info.saved_at }}</p>
+<ul>
+  {% for k,v in info.counts.items() %}
+  <li>{{ k }}: {{ v }}</li>
+  {% endfor %}
+</ul>
+<p><a href="/refresh">Refresh now</a></p>
+{% endblock %}
