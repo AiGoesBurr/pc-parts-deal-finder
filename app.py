@@ -326,7 +326,7 @@ def _fetch_image_url(q, link=None):
     if cache_key in _image_cache:
         return _image_cache[cache_key]
     url = None
-    # 1. If a Slickdeals deal link is provided, scrape its og:image
+    # 1. Slickdeals deal page og:image (most accurate for prebuilts/deals)
     if link and "slickdeals.net" in link:
         try:
             import requests
@@ -336,37 +336,7 @@ def _fetch_image_url(q, link=None):
                 url = m.group(1)
         except Exception:
             url = None
-    # 2. Prefer manufacturer-domain images via Bing
-    if not url:
-        try:
-            import requests
-            low = q.lower()
-            domain = None
-            if "amd" in low or "ryzen" in low or "radeon" in low: domain = "amd.com"
-            elif "intel" in low: domain = "intel.com"
-            elif "nvidia" in low or "geforce" in low or "rtx" in low or "gtx" in low: domain = "nvidia.com"
-            elif "corsair" in low: domain = "corsair.com"
-            elif "g.skill" in low or "gskill" in low: domain = "gskill.com"
-            elif "crucial" in low: domain = "crucial.com"
-            elif "samsung" in low: domain = "samsung.com"
-            elif "seagate" in low: domain = "seagate.com"
-            elif "kingston" in low: domain = "kingston.com"
-            elif "western digital" in low: domain = "westerndigital.com"
-            if domain:
-                r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote("site:" + domain + " " + q), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-                imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
-                toks = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", q)
-                keytoks = [t for t in toks if any(c.isdigit() for c in t)]
-                keytok = max(keytoks, key=len).lower() if keytoks else None
-                if keytok:
-                    preferred = [i for i in imgs if keytok in i.lower()]
-                    if preferred:
-                        url = preferred[0]
-                if not url and imgs:
-                    url = imgs[0]
-        except Exception:
-            url = None
-    # 3. Try Amazon search for a product image
+    # 2. Amazon first product image
     if not url:
         try:
             import cloudscraper
@@ -378,56 +348,40 @@ def _fetch_image_url(q, link=None):
             elif any(w in low for w in ["rtx", "gtx", "radeon", "geforce", "arc a", "arc b"]):
                 aq = q + " graphics card"
             r = s.get("https://www.amazon.com/s?k=" + urllib.request.quote(aq), timeout=20)
-            imgs = re.findall(r'https://m\.media-amazon\.com/images/I/[A-Za-z0-9\._-]+\.jpg', r.text)
-            imgs = [i for i in imgs if not any(w in i.lower() for w in ["positive", "mixed", "critical", "stars"])]
-            if imgs:
-                url = imgs[0]
+            m = re.search(r'<img[^>]*class="s-image"[^>]*src="([^"]+)"', r.text)
+            if m:
+                url = m.group(1)
         except Exception:
             url = None
-    # 4. General Bing image search fallback
+    # 3. Manufacturer-domain Bing image (fallback)
     if not url:
         try:
             import requests
-            r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(q + " product photo"), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-            imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
-            if imgs:
-                url = imgs[0]
-        except Exception:
-            url = None
-        try:
-            import requests
-            toks = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", q)
-            keytoks = [t for t in toks if any(c.isdigit() for c in t)]
-            keytok = max(keytoks, key=len).lower() if keytoks else None
-            # determine preferred domain from brand
             low = q.lower()
             domain = None
             if "amd" in low or "ryzen" in low or "radeon" in low: domain = "amd.com"
             elif "intel" in low: domain = "intel.com"
             elif "nvidia" in low or "geforce" in low or "rtx" in low or "gtx" in low: domain = "nvidia.com"
             elif "corsair" in low: domain = "corsair.com"
-            elif "g.skill" in low or "gskill" in low: domain = "gskill.com"
             elif "crucial" in low: domain = "crucial.com"
             elif "samsung" in low: domain = "samsung.com"
-            elif "western digital" in low or "wd " in low: domain = "westerndigital.com"
             elif "seagate" in low: domain = "seagate.com"
             elif "kingston" in low: domain = "kingston.com"
-            # try domain-filtered search first
             if domain:
                 r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote("site:" + domain + " " + q), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
                 imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
                 if imgs:
                     url = imgs[0]
-            # general search fallback
-            if not url:
-                r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(q + " product photo"), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-                imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
-                if keytok:
-                    preferred = [i for i in imgs if keytok in i.lower()]
-                    if preferred:
-                        url = preferred[0]
-                if not url and imgs:
-                    url = imgs[0]
+        except Exception:
+            url = None
+    # 4. General Bing image search (last resort)
+    if not url:
+        try:
+            import requests
+            r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(q + " product"), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
+            imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
+            if imgs:
+                url = imgs[0]
         except Exception:
             url = None
     _image_cache[cache_key] = url
