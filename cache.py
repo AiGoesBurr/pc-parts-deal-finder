@@ -8,7 +8,7 @@ def _price_map(cache):
     m = {}
     if not cache:
         return m
-    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler"):
+    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts"):
         pm = {}
         for r in (cache.get(k) or []):
             if isinstance(r, dict) and r.get("name") and r.get("price") is not None:
@@ -96,8 +96,14 @@ def get_data(force=False):
         payload.update(parts)
     except Exception as e:
         payload["parts_error"] = str(e)
+    try:
+        from scrapers.prebuilt import scrape_prebuilts
+        payload["prebuilts"] = scrape_prebuilts()
+    except Exception as e:
+        payload["prebuilts"] = []
+        payload["prebuilt_error"] = str(e)
     # errors
-    for k in ("memory","storage","psu","motherboard","case","cooler"):
+    for k in ("memory","storage","psu","motherboard","case","cooler","prebuilts"):
         payload.setdefault(k, [])
     # annotate price change vs previous scrape
     old_prices = _price_map(cache) if cache else {}
@@ -121,7 +127,7 @@ def cache_info(cache):
     if not cache:
         return {"saved_at": None, "counts": {}}
     counts = {}
-    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler"):
+    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts"):
         v = cache.get(k)
         counts[k] = len(v) if isinstance(v, list) else 0
     return {"saved_at": cache.get("_saved_at_iso"), "counts": counts}

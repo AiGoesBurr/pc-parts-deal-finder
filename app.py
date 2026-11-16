@@ -25,6 +25,7 @@ CATS = {
     "motherboard": {"key": "motherboard", "title": "Motherboards", "value_col": "value", "value_label": "Value (1/$)"},
     "case": {"key": "case", "title": "Cases", "value_col": "value", "value_label": "Value (1/$)"},
     "cooler": {"key": "cooler", "title": "CPU Coolers", "value_col": "value", "value_label": "Value (1/$)"},
+    "prebuilt": {"key": "prebuilts", "title": "Prebuilt PCs", "value_col": "value", "value_label": "Value (1/$)"},
 }
 
 def _rows(cat):
