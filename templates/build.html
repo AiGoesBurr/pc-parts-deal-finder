@@ -6,6 +6,16 @@
 <div class="mb-3">
   <button class="btn btn-sm btn-primary" onclick="autoSuggest()">Auto-suggest best value build</button>
   <button class="btn btn-sm btn-outline-light ms-2" onclick="clearBuild()">Clear</button>
+  <button class="btn btn-sm btn-success ms-2" onclick="exportBuild()">Export build</button>
+</div>
+<div id="exportBox" class="card p-3 mt-3" style="display:none">
+  <h6>Build parts list</h6>
+  <textarea id="exportText" class="form-control" rows="10" readonly></textarea>
+  <div class="mt-2">
+    <button class="btn btn-sm btn-primary" onclick="copyExport()">Copy to clipboard</button>
+    <a class="btn btn-sm btn-outline-light ms-2" href="https://pcpartpicker.com/list/" target="_blank" rel="noopener">Open PCPartPicker list builder</a>
+  </div>
+  <p class="muted small mt-2">Open the PCPartPicker list builder and search/add each part. Prices are estimates.</p>
 </div>
 <div id="buildForm" class="row g-3"></div>
 <div class="card p-3 mt-3">
@@ -75,6 +85,28 @@ function clearBuild(){
     if (sel) sel.selectedIndex = 0;
   }
   updateTotal();
+}
+function exportBuild(){
+  const lines = [];
+  let total = 0;
+  for (const cat of CAT_ORDER){
+    const sel = document.getElementById("sel_"+cat);
+    if (!sel || !sel.value) continue;
+    const opt = sel.options[sel.selectedIndex];
+    const price = parseFloat(opt.dataset.price||0);
+    total += price;
+    lines.push(CATS[cat].title + ": " + sel.value + " — $" + price.toFixed(2));
+  }
+  lines.push("");
+  lines.push("Estimated total: $" + total.toFixed(2));
+  document.getElementById("exportText").value = lines.join("\n");
+  document.getElementById("exportBox").style.display = "block";
+}
+function copyExport(){
+  const t = document.getElementById("exportText");
+  t.select();
+  document.execCommand("copy");
+  alert("Copied to clipboard.");
 }
 renderForm();
 </script>
