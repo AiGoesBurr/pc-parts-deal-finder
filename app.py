@@ -226,6 +226,10 @@ def refresh():
     get_data(force=True, region=_region())
     return redirect(request.referrer or url_for("index"))
 
+@app.route("/install")
+def install():
+    return render_template("install.html", cats=CATS)
+
 @app.route("/sources")
 def sources():
     info = cache_info(get_data(region=_region()))

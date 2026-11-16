@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Install App - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<h2>Install the app</h2>
+<p class="muted small">This is a Progressive Web App. You can install it on your device for quick access and offline use.</p>
+
+<div class="card p-3 mb-3">
+  <h5>Android (Chrome)</h5>
+  <ol class="small">
+    <li>Open this site in Chrome.</li>
+    <li>Tap the menu (⋮) → <strong>Install app</strong> (or "Add to Home screen").</li>
+    <li>Confirm. An icon will appear on your home screen.</li>
+  </ol>
+</div>
+<div class="card p-3 mb-3">
+  <h5>iPhone / iPad (Safari)</h5>
+  <ol class="small">
+    <li>Open this site in Safari.</li>
+    <li>Tap the Share button (square with arrow).</li>
+    <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+    <li>Tap <strong>Add</strong>. The icon appears on your home screen.</li>
+  </ol>
+</div>
+<div class="card p-3 mb-3">
+  <h5>Desktop (Chrome / Edge)</h5>
+  <ol class="small">
+    <li>Open this site in Chrome or Edge.</li>
+    <li>Click the install icon in the address bar (or menu → "Install PC Parts Deal Finder").</li>
+    <li>Confirm. The app opens in its own window.</li>
+  </ol>
+</div>
+<div class="card p-3 mb-3">
+  <h5>Manual install button</h5>
+  <button class="btn btn-sm btn-primary" id="installBtn" style="display:none">Install now</button>
+  <p id="installMsg" class="muted small mt-2">If no install prompt appears, use the browser menu steps above.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.style.display = "inline-block";
+});
+document.getElementById("installBtn").addEventListener("click", async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  document.getElementById("installMsg").textContent = outcome === "accepted" ? "Installed!" : "Install cancelled.";
+  deferredPrompt = null;
+  document.getElementById("installBtn").style.display = "none";
+});
+</script>
+{% endblock %}
