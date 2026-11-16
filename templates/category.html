@@ -87,6 +87,17 @@ const SEL_KEY = "compare_"+CAT;
 let selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]"));
 function toggleSel(name, on){ if(on) selected.add(name); else selected.delete(name); localStorage.setItem(SEL_KEY, JSON.stringify([...selected])); }
 function updateCompareBtn(){ const b=document.getElementById("compareBtn"); if(!b) return; b.textContent = "Compare ("+selected.size+")"; b.disabled = selected.size < 2; }
+function getWatchlist(){ return JSON.parse(localStorage.getItem("watchlist")||"[]"); }
+function saveWatchlist(w){ localStorage.setItem("watchlist", JSON.stringify(w)); }
+function isWatched(cat,name){ return getWatchlist().some(x=>x.cat===cat && x.name===name); }
+function toggleWatch(cat,name,btn){
+  name=decodeURIComponent(name);
+  let w=getWatchlist();
+  const idx=w.findIndex(x=>x.cat===cat && x.name===name);
+  if (idx>=0){ w.splice(idx,1); btn.textContent="☆"; btn.classList.remove("btn-warning"); btn.classList.add("btn-outline-warning"); }
+  else { w.push({cat,name,threshold:null}); btn.textContent="★"; btn.classList.remove("btn-outline-warning"); btn.classList.add("btn-warning"); }
+  saveWatchlist(w);
+}
 function goCompare(){ if(selected.size<2) return; window.location.href = "/compare?cat="+CAT; }
 async function showHistory(name){
   name = decodeURIComponent(name);
@@ -112,15 +123,15 @@ let sortKey = "value";
 let sortOrder = "desc";
 
 const COLUMNS = {
-  cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","hist","buy"],
-  gpu: ["img","sel","name","brand","score","price","price_change_pct","value","hist","buy"],
-  memory: ["img","sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","buy"],
-  storage: ["img","sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","buy"],
-  psu: ["img","sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","hist","buy"],
-  motherboard: ["img","sel","name","brand","socket","form_factor","max_ram_gb","price","price_change_pct","value","hist","buy"],
-  case: ["img","sel","name","brand","form_factor","color","price","price_change_pct","value","hist","buy"],
-  cooler: ["img","sel","name","brand","radiator_size","decibels","price","price_change_pct","value","hist","buy"],
-  prebuilt: ["img","sel","name","brand","price","price_change_pct","value","hist","buy"],
+  cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","hist","watch","buy"],
+  gpu: ["img","sel","name","brand","score","price","price_change_pct","value","hist","watch","buy"],
+  memory: ["img","sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","buy"],
+  storage: ["img","sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","buy"],
+  psu: ["img","sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","hist","watch","buy"],
+  motherboard: ["img","sel","name","brand","socket","form_factor","max_ram_gb","price","price_change_pct","value","hist","watch","buy"],
+  case: ["img","sel","name","brand","form_factor","color","price","price_change_pct","value","hist","watch","buy"],
+  cooler: ["img","sel","name","brand","radiator_size","decibels","price","price_change_pct","value","hist","watch","buy"],
+  prebuilt: ["img","sel","name","brand","price","price_change_pct","value","hist","watch","buy"],
 };
 
 function buySuffix(cat){
@@ -182,6 +193,7 @@ function render(){
     if (c==="img") return `<th>Img</th>`;
     if (c==="sel") return `<th><input type="checkbox" id="selectAll"></th>`;
     if (c==="hist") return `<th>Hist</th>`;
+    if (c==="watch") return `<th>Watch</th>`;
     if (c==="buy") return `<th>Buy</th>`;
     if (c==="price_change_pct") return `<th style="cursor:pointer" data-col="${c}">Δ%</th>`;
     if (c==="price") return `<th style="cursor:pointer" data-col="${c}">Price (est.)</th>`;
@@ -202,6 +214,10 @@ function render(){
     }
     if (c==="sel") return `<td><input type="checkbox" class="rowSel" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
     if (c==="hist") return `<td><button class="btn btn-sm btn-outline-info" onclick="showHistory('${encodeURIComponent(r.name)}')">H</button></td>`;
+  if (c==="watch") {
+    const isW = isWatched(CAT, r.name);
+    return `<td><button class="btn btn-sm ${isW?'btn-warning':'btn-outline-warning'}" onclick="toggleWatch('${CAT}','${encodeURIComponent(r.name)}',this)">${isW?'★':'☆'}</button></td>`;
+  }
     if (c==="buy") {
       if (CAT === "prebuilt") return `<td><a href="${r.link||r.source_url}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">View deal</a></td>`;
       return `<td>${buyLinks(r.name)}</td>`;

@@ -235,6 +235,10 @@ def deals():
 def compat():
     return render_template("compat.html", cats=CATS)
 
+@app.route("/watchlist")
+def watchlist():
+    return render_template("watchlist.html", cats=CATS)
+
 @app.route("/build")
 def build():
     return render_template("build.html", cats=CATS)

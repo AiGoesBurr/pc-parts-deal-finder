@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Watchlist - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<h2>Watchlist & price alerts</h2>
+<p class="muted small">Starred parts. Set a target price; items at or below target are highlighted.</p>
+<div id="msg" class="muted"></div>
+<div class="table-responsive">
+  <table class="table table-sm" id="wtable">
+    <thead><tr><th>Name</th><th>Category</th><th>Current</th><th>Target</th><th>Δ%</th><th></th></tr></thead>
+    <tbody id="wbody"></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const cats = {{ cats|tojson }};
+const watchlist = JSON.parse(localStorage.getItem("watchlist")||"[]");
+const cache = {};
+async function loadCat(cat){ if(cache[cat]) return cache[cat]; const r=await fetch("/api/data/"+cat+"?limit=100000"); const j=await r.json(); cache[cat]=j.rows; return j.rows; }
+async function render(){
+  const tbody = document.getElementById("wbody");
+  if (!watchlist.length){ document.getElementById("msg").textContent = "No starred parts yet. Star items on category pages."; return; }
+  const rows = [];
+  for (const w of watchlist){
+    const data = await loadCat(w.cat);
+    const item = data.find(r=>r.name===w.name);
+    rows.push({w, item});
+  }
+  tbody.innerHTML = rows.map(({w,item})=>{
+    const price = item ? item.price : null;
+    const change = item ? item.price_change_pct : null;
+    const alert = (w.threshold && price !== null && price <= w.threshold) ? "table-warning" : "";
+    const changeStr = change===null||change===undefined ? "-" : (change>0?"+":"")+change+"%";
+    return `<tr class="${alert}">
+      <td class="small">${w.name}</td>
+      <td>${cats[w.cat].title}</td>
+      <td>${price!==null? "$"+price : "-"}</td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" style="width:90px" value="${w.threshold||""}" onchange="setThreshold('${w.cat}','${encodeURIComponent(w.name)}',this.value)"></td>
+      <td>${changeStr}</td>
+      <td><button class="btn btn-sm btn-outline-danger" onclick="removeWatch('${w.cat}','${encodeURIComponent(w.name)}')">Remove</button></td>
+    </tr>`;
+  }).join("");
+}
+function setThreshold(cat,name,val){
+  const w = JSON.parse(localStorage.getItem("watchlist")||"[]");
+  const it = w.find(x=>x.cat===cat && x.name===decodeURIComponent(name));
+  if (it) it.threshold = val ? parseFloat(val) : null;
+  localStorage.setItem("watchlist", JSON.stringify(w));
+}
+function removeWatch(cat,name){
+  let w = JSON.parse(localStorage.getItem("watchlist")||"[]");
+  w = w.filter(x=>!(x.cat===cat && x.name===decodeURIComponent(name)));
+  localStorage.setItem("watchlist", JSON.stringify(w));
+  location.reload();
+}
+render();
+</script>
+{% endblock %}
