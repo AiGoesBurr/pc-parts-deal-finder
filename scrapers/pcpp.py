@@ -170,6 +170,24 @@ def scrape_parts(region="us"):
 
     return result
 
+def scrape_gpu_specs(region="us"):
+    import asyncio
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+    api = API(region)
+    data = api.retrieve("video-card")
+    out = []
+    for p in data.get("video-card", []):
+        vram_gb = None
+        try:
+            vram_gb = round(p.vram.total / 1e9, 1)
+        except Exception:
+            pass
+        out.append({"chipset": getattr(p, "chipset", None), "vram_gb": vram_gb, "length": getattr(p, "length", None)})
+    return out
+
 def scrape_cpu_cores(region="us"):
     import asyncio
     try:

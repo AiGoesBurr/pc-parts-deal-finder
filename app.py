@@ -99,6 +99,35 @@ def api_data(cat):
             rows = [r for r in rows if (r.get("cores") is not None) and r.get("cores") <= mx]
     except ValueError:
         pass
+    # vram/length range (gpu)
+    min_vram = request.args.get("min_vram")
+    max_vram = request.args.get("max_vram")
+    try:
+        if min_vram not in (None, ""):
+            mn = float(min_vram)
+            rows = [r for r in rows if (r.get("vram_gb") is not None) and r.get("vram_gb") >= mn]
+    except ValueError:
+        pass
+    try:
+        if max_vram not in (None, ""):
+            mx = float(max_vram)
+            rows = [r for r in rows if (r.get("vram_gb") is not None) and r.get("vram_gb") <= mx]
+    except ValueError:
+        pass
+    min_length = request.args.get("min_length")
+    max_length = request.args.get("max_length")
+    try:
+        if min_length not in (None, ""):
+            mn = float(min_length)
+            rows = [r for r in rows if (r.get("length") is not None) and r.get("length") >= mn]
+    except ValueError:
+        pass
+    try:
+        if max_length not in (None, ""):
+            mx = float(max_length)
+            rows = [r for r in rows if (r.get("length") is not None) and r.get("length") <= mx]
+    except ValueError:
+        pass
     # filters
     for f in request.args:
         if f.startswith("filter_"):

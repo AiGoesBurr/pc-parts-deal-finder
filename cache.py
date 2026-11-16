@@ -166,6 +166,29 @@ def _do_scrape():
         except Exception as e:
             payload["gpus"] = []
             payload["gpu_error"] = str(e)
+        # merge vram/length from PCPartPicker where matched (by chipset)
+        try:
+            from scrapers.pcpp import scrape_gpu_specs
+            import re
+            def _norm(n):
+                return (n or "").lower().strip()
+            spec_map = {}
+            for s in scrape_gpu_specs():
+                if s.get("chipset"):
+                    spec_map[_norm(s["chipset"])] = s
+            for g in payload.get("gpus", []):
+                if not isinstance(g, dict):
+                    continue
+                g.setdefault("vram_gb", None)
+                g.setdefault("length", None)
+                sp = spec_map.get(_norm(g.get("name")))
+                if sp:
+                    if g["vram_gb"] is None:
+                        g["vram_gb"] = sp.get("vram_gb")
+                    if g["length"] is None:
+                        g["length"] = sp.get("length")
+        except Exception as e:
+            payload["gpu_spec_error"] = str(e)
         try:
             parts = scrape_parts()
             payload.update(parts)

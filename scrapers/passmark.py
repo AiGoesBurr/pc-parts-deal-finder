@@ -120,6 +120,8 @@ def _parse_tier_page(url):
                 items.append({
                     "name": name,
                     "brand": brand,
+                    "vram_gb": None,
+                    "length": None,
                     "score": score,
                     "price": price,
                     "percent": pct,

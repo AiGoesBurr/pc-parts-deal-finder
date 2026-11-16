@@ -42,6 +42,12 @@
       <select id="formFactor" class="form-select"><option value="">All form factors</option></select>
     </div>
     {% endif %}
+    {% if cat == 'gpu' %}
+    <div class="col-md-2"><input id="minVram" class="form-control" type="number" step="0.1" placeholder="Min VRAM GB"></div>
+    <div class="col-md-2"><input id="maxVram" class="form-control" type="number" step="0.1" placeholder="Max VRAM GB"></div>
+    <div class="col-md-2"><input id="minLen" class="form-control" type="number" step="1" placeholder="Min length mm"></div>
+    <div class="col-md-2"><input id="maxLen" class="form-control" type="number" step="1" placeholder="Max length mm"></div>
+    {% endif %}
     {% if cat == 'storage' %}
     <div class="col-md-3">
       <select id="storageType" class="form-select">
@@ -124,7 +130,7 @@ let sortOrder = "desc";
 
 const COLUMNS = {
   cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","hist","watch","buy"],
-  gpu: ["img","sel","name","brand","score","price","price_change_pct","value","hist","watch","buy"],
+  gpu: ["img","sel","name","brand","score","vram_gb","length","price","price_change_pct","value","hist","watch","buy"],
   memory: ["img","sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","buy"],
   storage: ["img","sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","buy"],
   psu: ["img","sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","hist","watch","buy"],
@@ -178,6 +184,10 @@ async function loadData(){
   if (minC && minC.value.trim()) params.set("min_cores", minC.value.trim());
   const maxC = document.getElementById("maxCores");
   if (maxC && maxC.value.trim()) params.set("max_cores", maxC.value.trim());
+  for (const [id,param] of [["minVram","min_vram"],["maxVram","max_vram"],["minLen","min_length"],["maxLen","max_length"]]) {
+    const el = document.getElementById(id);
+    if (el && el.value.trim()) params.set(param, el.value.trim());
+  }
   const brand = document.getElementById("brand").value;
   if (brand) params.set("filter_brand", brand);
   const ff = document.getElementById("formFactor");
@@ -267,6 +277,10 @@ const _minC = document.getElementById("minCores");
 if (_minC) _minC.addEventListener("input", ()=>{ page=0; loadData(); });
 const _maxC = document.getElementById("maxCores");
 if (_maxC) _maxC.addEventListener("input", ()=>{ page=0; loadData(); });
+for (const id of ["minVram","maxVram","minLen","maxLen"]) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("input", ()=>{ page=0; loadData(); });
+}
 document.getElementById("brand").addEventListener("change", ()=>{ page=0; loadData(); });
 const _ff = document.getElementById("formFactor");
 if (_ff) _ff.addEventListener("change", ()=>{ page=0; loadData(); });
