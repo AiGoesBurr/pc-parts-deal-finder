@@ -1,5 +1,4 @@
-import csv, io, os, re, logging, smtplib, json as _json
-from email.message import EmailMessage
+import csv, io, os, re, logging
 logger = logging.getLogger("pcparts.app")
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -418,6 +417,11 @@ def _fetch_image_url(q, link=None):
         pass
     return url
 
+@app.route("/sw.js")
+def service_worker():
+    from flask import send_from_directory
+    return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
+
 @app.route("/api/status")
 def api_status():
     return jsonify({"scraping": is_scraping()})
@@ -456,105 +460,6 @@ def api_autobuild():
         return jsonify({"ok": False, "message": "Choose a budget between 300 and 10,000."}), 400
     cache = get_data(region=_region()) or {}
     return jsonify(build_within_budget(cache, budget))
-
-SUBS_PATH = os.path.join(os.path.dirname(__file__), "data", "subscriptions.json")
-
-def _load_subs():
-    try:
-        if os.path.exists(SUBS_PATH):
-            return _json.load(open(SUBS_PATH, encoding="utf-8"))
-    except Exception:
-        pass
-    return []
-
-def _save_subs(subs):
-    try:
-        os.makedirs(os.path.dirname(SUBS_PATH), exist_ok=True)
-        tmp = SUBS_PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            _json.dump(subs, f, ensure_ascii=False, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, SUBS_PATH)
-    except Exception as e:
-        logger.warning("save subs failed: %s", e)
-
-def _send_email(to, subject, body):
-    host = os.environ.get("SMTP_HOST")
-    user = os.environ.get("SMTP_USER")
-    pwd = os.environ.get("SMTP_PASS")
-    port = int(os.environ.get("SMTP_PORT", "587"))
-    if not host or not user or not pwd:
-        return False
-    try:
-        msg = EmailMessage()
-        msg["From"] = user
-        msg["To"] = to
-        msg["Subject"] = subject
-        msg.set_content(body)
-        with smtplib.SMTP(host, port, timeout=30) as s:
-            s.starttls()
-            s.login(user, pwd)
-            s.send_message(msg)
-        return True
-    except Exception as e:
-        logger.warning("email send failed: %s", e)
-        return False
-
-@app.route("/api/subscribe", methods=["POST"])
-def api_subscribe():
-    data = request.get_json(silent=True) or {}
-    email = (data.get("email") or "").strip()
-    items = data.get("items") or []
-    if not email or "@" not in email:
-        return jsonify({"ok": False, "error": "valid email required"}), 400
-    subs = _load_subs()
-    # replace existing entry for this email
-    subs = [s for s in subs if s.get("email") != email]
-    subs.append({"email": email, "items": items, "last": {}})
-    _save_subs(subs)
-    return jsonify({"ok": True, "count": len(items)})
-
-@app.route("/api/check-alerts", methods=["POST"])
-def api_check_alerts():
-    expected = os.environ.get("SCRAPE_TOKEN") or os.environ.get("REFRESH_TOKEN")
-    token = request.headers.get("X-Scrape-Token") or request.form.get("token")
-    if expected and token != expected:
-        return "forbidden", 403
-    cache = get_data()
-    if not cache:
-        return jsonify({"ok": False, "error": "no data"}), 503
-    subs = _load_subs()
-    sent = 0
-    for sub in subs:
-        email = sub.get("email")
-        items = sub.get("items") or []
-        last = sub.get("last") or {}
-        lines = []
-        for it in items:
-            cat = it.get("cat"); name = it.get("name"); thr = it.get("threshold")
-            rows = cache.get(CATS.get(cat, {}).get("key", ""), []) if cat in CATS else []
-            row = next((r for r in rows if r.get("name") == name), None)
-            if not row or row.get("price") is None:
-                continue
-            price = row["price"]
-            prev = last.get(name)
-            # alert if price <= threshold, or dropped since last check
-            triggered = False
-            if thr is not None and price <= thr:
-                triggered = True
-            if prev is not None and price < prev:
-                triggered = True
-            if triggered:
-                lines.append(f"- {name}: now {price} (target {thr})")
-                last[name] = price
-        if lines and email:
-            body = "Price alert from PC Parts Deal Finder:\n\n" + "\n".join(lines) + "\n\nView: https://pc-parts-an-deals.onrender.com/"
-            if _send_email(email, "PC Parts price alert", body):
-                sent += 1
-        sub["last"] = last
-    _save_subs(subs)
-    return jsonify({"ok": True, "emails_sent": sent, "subscribers": len(subs)})
 
 @app.route("/search")
 def search():

@@ -7,13 +7,3 @@ services:
     envVars:
       - key: PORT
         value: 5000
-      - key: SMTP_HOST
-        value: ""
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_USER
-        value: ""
-      - key: SMTP_PASS
-        value: ""
-      - key: SCRAPE_TOKEN
-        value: ""

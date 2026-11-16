@@ -1,0 +1,13 @@
+{
+  "name": "PC Parts Deal Finder",
+  "short_name": "PC Deals",
+  "description": "Best bang-for-your-buck PC parts from reliable sources.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1c1c1e",
+  "theme_color": "#1c1c1e",
+  "icons": [
+    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
