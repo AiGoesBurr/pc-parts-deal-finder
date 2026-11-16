@@ -93,8 +93,19 @@ const COLUMNS = {
   prebuilt: ["img","sel","name","brand","price","price_change_pct","value","buy"],
 };
 
+function buySuffix(cat){
+  if (cat==="storage") return " SSD hard drive";
+  if (cat==="memory") return " RAM memory";
+  if (cat==="psu") return " power supply";
+  if (cat==="case") return " PC case";
+  if (cat==="cooler") return " CPU cooler";
+  if (cat==="motherboard") return " motherboard";
+  if (cat==="cpu") return " CPU processor";
+  if (cat==="gpu") return " graphics card";
+  return "";
+}
 function buyLinks(name){
-  const q = encodeURIComponent(name);
+  const q = encodeURIComponent(name + buySuffix(CAT));
   return `<a href="https://www.amazon.com/s?k=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-primary me-1">Amazon</a>` +
          `<a href="https://www.newegg.com/p/pl?d=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-success me-1">Newegg</a>` +
          `<a href="https://www.bhphotovideo.com/c/search?Ntt=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-info">B&H</a>`;
