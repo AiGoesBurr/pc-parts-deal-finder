@@ -326,7 +326,16 @@ def _fetch_image_url(q, link=None):
     if cache_key in _image_cache:
         return _image_cache[cache_key]
     url = None
-    # 1. Slickdeals deal page og:image (most accurate for prebuilts/deals)
+    low = q.lower()
+    toks = q.split()
+    queries = [q]
+    if len(toks) > 3:
+        queries.append(" ".join(toks[:4]))
+    if len(toks) > 2:
+        queries.append(" ".join(toks[:3]))
+    if len(toks) > 1:
+        queries.append(" ".join(toks[:2]))
+    # 1. Slickdeals deal page og:image
     if link and "slickdeals.net" in link:
         try:
             import requests
@@ -336,28 +345,28 @@ def _fetch_image_url(q, link=None):
                 url = m.group(1)
         except Exception:
             url = None
-    # 2. Amazon first product image
+    # 2. Amazon first product image (try full then shorter queries)
     if not url:
         try:
             import cloudscraper
             s = cloudscraper.create_scraper()
             aq = q
-            low = q.lower()
             if any(w in low for w in ["ryzen", "core i", "core ultra", "xeon", "threadripper", "epyc"]):
                 aq = q + " processor"
             elif any(w in low for w in ["rtx", "gtx", "radeon", "geforce", "arc a", "arc b"]):
                 aq = q + " graphics card"
-            r = s.get("https://www.amazon.com/s?k=" + urllib.request.quote(aq), timeout=20)
-            m = re.search(r'<img[^>]*class="s-image"[^>]*src="([^"]+)"', r.text)
-            if m:
-                url = m.group(1)
+            for tryq in [aq] + [t + (" processor" if ("ryzen" in low or "core i" in low) else (" graphics card" if ("rtx" in low or "radeon" in low) else "")) for t in queries[1:]]:
+                r = s.get("https://www.amazon.com/s?k=" + urllib.request.quote(tryq), timeout=20)
+                m = re.search(r'<img[^>]*class="s-image"[^>]*src="([^"]+)"', r.text)
+                if m:
+                    url = m.group(1)
+                    break
         except Exception:
             url = None
-    # 3. Manufacturer-domain Bing image (fallback)
+    # 3. Manufacturer-domain Bing image
     if not url:
         try:
             import requests
-            low = q.lower()
             domain = None
             if "amd" in low or "ryzen" in low or "radeon" in low: domain = "amd.com"
             elif "intel" in low: domain = "intel.com"
@@ -368,20 +377,24 @@ def _fetch_image_url(q, link=None):
             elif "seagate" in low: domain = "seagate.com"
             elif "kingston" in low: domain = "kingston.com"
             if domain:
-                r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote("site:" + domain + " " + q), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-                imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
-                if imgs:
-                    url = imgs[0]
+                for tryq in queries:
+                    r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote("site:" + domain + " " + tryq), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
+                    imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
+                    if imgs:
+                        url = imgs[0]
+                        break
         except Exception:
             url = None
     # 4. General Bing image search (last resort)
     if not url:
         try:
             import requests
-            r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(q + " product"), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-            imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
-            if imgs:
-                url = imgs[0]
+            for tryq in queries:
+                r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(tryq + " product"), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
+                imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
+                if imgs:
+                    url = imgs[0]
+                    break
         except Exception:
             url = None
     _image_cache[cache_key] = url
