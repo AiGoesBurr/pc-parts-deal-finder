@@ -8,6 +8,7 @@
   <button class="btn btn-sm btn-outline-light ms-2" onclick="clearBuild()">Clear</button>
   <button class="btn btn-sm btn-success ms-2" onclick="exportBuild()">Export build</button>
   <button class="btn btn-sm btn-warning ms-2" onclick="saveBuild()">Save build</button>
+  <button class="btn btn-sm btn-info ms-2" onclick="shareBuild()">Share build</button>
   <input id="buildName" class="form-control form-control-sm d-inline-block ms-2" style="width:200px" placeholder="Build name">
 </div>
 <div class="mb-3 d-flex align-items-center gap-2">
@@ -62,6 +63,29 @@ async function renderForm(){
   const params = new URLSearchParams(location.search);
   const load = params.get("load");
   if (load) loadBuildByName(load);
+  // load from shareable URL params
+  let shared = false;
+  for (const cat of CAT_ORDER){
+    const v = params.get(cat);
+    if (v){
+      const sel = document.getElementById("sel_"+cat);
+      if (sel){
+        for (let i=0;i<sel.options.length;i++){
+          if (sel.options[i].value === v){ sel.selectedIndex = i; shared = true; break; }
+        }
+      }
+    }
+  }
+  if (shared) updateTotal();
+}
+function shareBuild(){
+  const params = new URLSearchParams();
+  for (const cat of CAT_ORDER){
+    const sel = document.getElementById("sel_"+cat);
+    if (sel && sel.value) params.set(cat, sel.value);
+  }
+  const url = location.origin + "/build?" + params.toString();
+  navigator.clipboard.writeText(url).then(()=>alert("Shareable link copied to clipboard.")).catch(()=>{ prompt("Copy this link:", url); });
 }
 function updateTotal(){
   let total = 0;
