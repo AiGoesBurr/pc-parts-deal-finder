@@ -6,3 +6,4 @@ pcpartpicker>=2.2
 aiohttp>=3.7
 py-moneyed>=0.8
 pandas>=2.0
+pytest>=7.0
