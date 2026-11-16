@@ -214,7 +214,12 @@ function render(){
   tbody.innerHTML = slice.map(r => "<tr>" + cols.map(c=> {
     if (c==="img") {
       const linkParam = r.link || r.source_url ? "&link="+encodeURIComponent(r.link||r.source_url) : "";
-      return `<td><img src="/api/image?q=${encodeURIComponent(r.name)}${linkParam}" loading="lazy" style="width:48px;height:48px;object-fit:contain;background:#0f172a;border-radius:4px" onerror="this.style.display='none'"></td>`;
+      const buyUrl = "https://www.amazon.com/s?k=" + encodeURIComponent(r.name + buySuffix(CAT));
+      return `<td><a href="${buyUrl}" target="_blank" rel="noopener"><img src="/api/image?q=${encodeURIComponent(r.name)}${linkParam}" loading="lazy" style="width:48px;height:48px;object-fit:contain;background:#0f172a;border-radius:4px" onerror="this.style.display='none'"></a></td>`;
+    }
+    if (c==="name") {
+      const buyUrl = "https://www.amazon.com/s?k=" + encodeURIComponent(r.name + buySuffix(CAT));
+      return `<td><a href="${buyUrl}" target="_blank" rel="noopener" class="text-decoration-none">${fmt(r[c])}</a></td>`;
     }
     if (c==="sel") return `<td><input type="checkbox" class="rowSel" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
     if (c==="hist") return `<td><button class="btn btn-sm btn-outline-info" onclick="showHistory('${encodeURIComponent(r.name)}')">H</button></td>`;
