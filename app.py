@@ -239,6 +239,10 @@ def compat():
 def watchlist():
     return render_template("watchlist.html", cats=CATS)
 
+@app.route("/savedbuilds")
+def savedbuilds():
+    return render_template("savedbuilds.html", cats=CATS)
+
 @app.route("/build")
 def build():
     return render_template("build.html", cats=CATS)

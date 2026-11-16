@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Saved Builds - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<h2>Saved builds</h2>
+<p class="muted small">Builds are stored in your browser (no account needed).</p>
+<div id="msg" class="muted"></div>
+<div id="list" class="row g-3"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+const CATS = {{ cats|tojson }};
+const CAT_ORDER = ["cpu","gpu","memory","storage","psu","motherboard","case","cooler"];
+function getBuilds(){ return JSON.parse(localStorage.getItem("saved_builds")||"[]"); }
+function saveBuilds(b){ localStorage.setItem("saved_builds", JSON.stringify(b)); }
+function fmt(v){ if(v===null||v===undefined) return ""; if(typeof v==="number") return Math.round(v*100)/100; return v; }
+async function render(){
+  const builds = getBuilds();
+  const container = document.getElementById("list");
+  if (!builds.length){ document.getElementById("msg").textContent = "No saved builds yet. Create one on the Build page."; return; }
+  let html = "";
+  for (let i=0;i<builds.length;i++){
+    const b = builds[i];
+    html += `<div class="col-md-6"><div class="card p-3 h-100">
+      <h5>${b.name}</h5>
+      <div class="muted small">${b.savedAt||""}</div>
+      <div class="muted small mt-1">Total: $${(b.total||0).toFixed(2)}</div>
+      <ul class="small mt-2 mb-2">${CAT_ORDER.filter(c=>b.selections[c]).map(c=>`<li>${CATS[c].title}: ${b.selections[c]}</li>`).join("")}</ul>
+      <div>
+        <a class="btn btn-sm btn-primary" href="/build?load=${encodeURIComponent(b.name)}">Load</a>
+        <button class="btn btn-sm btn-outline-danger ms-2" onclick="delBuild(${i})">Delete</button>
+      </div>
+    </div></div>`;
+  }
+  container.innerHTML = html;
+}
+function delBuild(i){
+  const builds = getBuilds();
+  builds.splice(i,1);
+  saveBuilds(builds);
+  render();
+}
+render();
+</script>
+{% endblock %}

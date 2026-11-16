@@ -7,6 +7,8 @@
   <button class="btn btn-sm btn-primary" onclick="autoSuggest()">Auto-suggest best value build</button>
   <button class="btn btn-sm btn-outline-light ms-2" onclick="clearBuild()">Clear</button>
   <button class="btn btn-sm btn-success ms-2" onclick="exportBuild()">Export build</button>
+  <button class="btn btn-sm btn-warning ms-2" onclick="saveBuild()">Save build</button>
+  <input id="buildName" class="form-control form-control-sm d-inline-block ms-2" style="width:200px" placeholder="Build name">
 </div>
 <div id="exportBox" class="card p-3 mt-3" style="display:none">
   <h6>Build parts list</h6>
@@ -52,6 +54,9 @@ async function renderForm(){
     container.appendChild(col);
   }
   updateTotal();
+  const params = new URLSearchParams(location.search);
+  const load = params.get("load");
+  if (load) loadBuildByName(load);
 }
 function updateTotal(){
   let total = 0;
@@ -83,6 +88,37 @@ function clearBuild(){
   for (const cat of CAT_ORDER){
     const sel = document.getElementById("sel_"+cat);
     if (sel) sel.selectedIndex = 0;
+  }
+  updateTotal();
+}
+function saveBuild(){
+  const name = document.getElementById("buildName").value.trim();
+  if (!name){ alert("Enter a build name."); return; }
+  const selections = {};
+  let total = 0;
+  for (const cat of CAT_ORDER){
+    const sel = document.getElementById("sel_"+cat);
+    if (sel && sel.value){ selections[cat] = sel.value; const opt = sel.options[sel.selectedIndex]; total += parseFloat(opt.dataset.price||0); }
+  }
+  const builds = JSON.parse(localStorage.getItem("saved_builds")||"[]");
+  const idx = builds.findIndex(b=>b.name===name);
+  const entry = {name, selections, total, savedAt: new Date().toLocaleString()};
+  if (idx>=0) builds[idx]=entry; else builds.push(entry);
+  localStorage.setItem("saved_builds", JSON.stringify(builds));
+  alert("Saved: "+name);
+}
+async function loadBuildByName(name){
+  const builds = JSON.parse(localStorage.getItem("saved_builds")||"[]");
+  const b = builds.find(x=>x.name===name);
+  if (!b) return;
+  for (const cat of CAT_ORDER){
+    const sel = document.getElementById("sel_"+cat);
+    if (!sel) continue;
+    if (b.selections[cat]){
+      for (let i=0;i<sel.options.length;i++){
+        if (sel.options[i].value === b.selections[cat]){ sel.selectedIndex = i; break; }
+      }
+    } else sel.selectedIndex = 0;
   }
   updateTotal();
 }
