@@ -14,6 +14,15 @@
 {% block scripts %}
 <script>
 const cats = {{ cats|tojson }};
+// request notification permission
+if ("Notification" in window && Notification.permission === "default") {
+  Notification.requestPermission();
+}
+function notify(title, body){
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, { body });
+  }
+}
 const watchlist = JSON.parse(localStorage.getItem("watchlist")||"[]");
 const cache = {};
 async function loadCat(cat){ if(cache[cat]) return cache[cat]; const r=await fetch("/api/data/"+cat+"?limit=100000"); const j=await r.json(); cache[cat]=j.rows; return j.rows; }
@@ -30,6 +39,7 @@ async function render(){
     const price = item ? item.price : null;
     const change = item ? item.price_change_pct : null;
     const alert = (w.threshold && price !== null && price <= w.threshold) ? "table-warning" : "";
+    if (alert) notify("Price alert: "+w.name, "Now $"+price+" (target $"+w.threshold+")");
     const changeStr = change===null||change===undefined ? "-" : (change>0?"+":"")+change+"%";
     return `<tr class="${alert}">
       <td class="small">${w.name}</td>
