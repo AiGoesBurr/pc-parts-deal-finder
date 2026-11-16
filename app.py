@@ -261,8 +261,12 @@ def _fetch_image_url(q):
 def api_image():
     q = request.args.get("q", "").strip()
     if not q:
-        return jsonify({"url": None})
-    return jsonify({"url": _fetch_image_url(q)})
+        return ("", 204)
+    url = _fetch_image_url(q)
+    if not url:
+        return ("", 204)
+    from flask import redirect
+    return redirect(url, code=302)
 
 @app.route("/search")
 def search():
