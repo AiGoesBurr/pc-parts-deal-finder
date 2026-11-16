@@ -6,31 +6,48 @@
 <title>{% block title %}PC Parts Deal Finder{% endblock %}</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
-  body { background:#121252; color:#402f7d; }
-  .navbar { background:#1c1c1e; border-bottom:1px solid #3a3a3c; }
-  .card { background:#2c2c2e; border:1px solid #0e0e0f; }
-  .table { color:#e2e8f0; }
-  .table thead th { color:#f5f5dc; border-color:#3a3a3c; }
-  .table td, .table th { border-color:#3a3a3c; vertical-align:middle; }
-  .badge-src { font-size:.7rem; }
-  .muted { color:#1a1818; }
-  a { color:#60a5fa; }
-  .hero { background:linear-gradient(135deg,#2c2c2e,#1c1c1e); padding:2rem 0; }
-  body.light { background:#f1f5f9; color:#0f172a; }
-  body.light .navbar { background:#ffffff; }
-  body.light .navbar .nav-link, body.light .navbar-brand, body.light .navbar-toggler { color:#0f172a !important; }
+  :root {
+    --bg: #0f172a;
+    --bg-soft: #1e293b;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --border: #334155;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+  }
+  body.light {
+    --bg: #f8fafc;
+    --bg-soft: #f1f5f9;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #475569;
+    --border: #cbd5e1;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+  }
+  body { background: var(--bg); color: var(--text); }
+  .navbar { background: var(--bg-soft); border-bottom: 1px solid var(--border); }
+  .card { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+  .table { color: var(--text); }
+  .table thead th { color: var(--muted); border-color: var(--border); font-weight: 600; }
+  .table td, .table th { border-color: var(--border); vertical-align: middle; }
+  .badge-src { font-size: .7rem; }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+  .hero { background: linear-gradient(135deg, var(--bg-soft), var(--bg)); padding: 2rem 0; }
+  body.light .navbar .nav-link, body.light .navbar-brand, body.light .navbar-toggler { color: var(--text) !important; }
   body.light .navbar-toggler-icon { filter: invert(1); }
-  body.light .card { background:#ffffff; border:1px solid #94a3b8; color:#0f172a; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
-  body.light .stat { color:#0f172a; }
-  body.light .table { color:#0f172a; }
-  body.light .table thead th { color:#1e293b; border-color:#cbd5e1; font-weight:600; }
-  body.light .table td, body.light .table th { border-color:#cbd5e1; }
-  body.light .muted { color:#000000; }
-  body.light a { color:#2563eb; }
-  body.light .filter-bar input, body.light .filter-bar select { background:#ffffff; color:#0f172a; border:1px solid #cbd5e1; }
-  body.light .btn-outline-light { color:#0f172a; border-color:#94a3b8; }
-  body.light .btn-outline-info { color:#0f172a; border-color:#94a3b8; }
-  body.light .btn-outline-danger { color:#dc2626; border-color:#dc2626; }
+  body.light .card { box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  body.light .filter-bar input, body.light .filter-bar select { background: #ffffff; color: var(--text); border: 1px solid var(--border); }
+  body.light .btn-outline-light { color: var(--text); border-color: var(--border); }
+  body.light .btn-outline-info { color: var(--text); border-color: var(--border); }
+  body.light .btn-outline-danger { color: #dc2626; border-color: #dc2626; }
+  body.light .dropdown-menu { background: #ffffff; border: 1px solid var(--border); }
+  body.light .dropdown-item { color: var(--text); }
+  body.light .dropdown-item:hover { background: #e2e8f0; }
+  .filter-bar input, .filter-bar select { background: var(--bg-soft); color: var(--text); border: 1px solid var(--border); }
+  .stat { font-size: 1.5rem; font-weight: 700; color: var(--text); }
   @media (max-width: 768px) {
     .table { font-size: 0.8rem; }
     .table img { width: 36px; height: 36px; }
@@ -39,11 +56,6 @@
     .filter-bar .form-control, .filter-bar .form-select { font-size: 0.85rem; }
     h2 { font-size: 1.3rem; }
   }
-  body.light .dropdown-menu { background:#ffffff; border:1px solid #cbd5e1; }
-  body.light .dropdown-item { color:#0f172a; }
-  body.light .dropdown-item:hover { background:#e2e8f0; }
-  .stat { font-size:1.5rem; font-weight:700; }
-  .filter-bar input, .filter-bar select { background:#0f172a; color:#e2e8f0; border:1px solid #334155; }
 </style>
 {% block head %}{% endblock %}
 </head>
