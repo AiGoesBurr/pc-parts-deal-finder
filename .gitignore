@@ -15,3 +15,6 @@ dist/
 
 # Temp
 *.tmp
+
+# Tests
+test_*.py
