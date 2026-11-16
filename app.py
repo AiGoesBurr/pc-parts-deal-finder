@@ -258,20 +258,34 @@ def _fetch_image_url(q, link=None):
         try:
             import cloudscraper
             s = cloudscraper.create_scraper()
-            r = s.get("https://www.amazon.com/s?k=" + urllib.request.quote(q), timeout=20)
+            aq = q
+            low = q.lower()
+            if any(w in low for w in ["ryzen", "core i", "core ultra", "xeon", "threadripper", "epyc"]):
+                aq = q + " processor"
+            elif any(w in low for w in ["rtx", "gtx", "radeon", "geforce", "arc a", "arc b"]):
+                aq = q + " graphics card"
+            r = s.get("https://www.amazon.com/s?k=" + urllib.request.quote(aq), timeout=20)
             imgs = re.findall(r'https://m\.media-amazon\.com/images/I/[A-Za-z0-9\._-]+\.jpg', r.text)
             imgs = [i for i in imgs if not any(w in i.lower() for w in ["positive", "mixed", "critical", "stars"])]
             if imgs:
                 url = imgs[0]
         except Exception:
             url = None
-    # 3. Fallback to Bing image search
+    # 3. Fallback to Bing image search (prefer images whose URL contains a key token from the query)
     if not url:
         try:
             import requests
-            r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(q), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
+            # build a key token (longest alphanumeric token with a digit)
+            toks = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", q)
+            keytoks = [t for t in toks if any(c.isdigit() for c in t)]
+            keytok = max(keytoks, key=len).lower() if keytoks else None
+            r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(q + " product"), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
             imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
-            if imgs:
+            if keytok:
+                preferred = [i for i in imgs if keytok in i.lower()]
+                if preferred:
+                    url = preferred[0]
+            if not url and imgs:
                 url = imgs[0]
         except Exception:
             url = None
