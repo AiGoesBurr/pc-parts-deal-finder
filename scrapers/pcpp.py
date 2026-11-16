@@ -56,6 +56,11 @@ def _base(p, category):
     }
 
 def scrape_parts(region="us"):
+    import asyncio
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
     api = API(region)
     data = api.retrieve("memory", "internal-hard-drive", "power-supply", "motherboard", "case", "cpu-cooler")
     result = {"memory": [], "storage": [], "psu": [], "motherboard": [], "case": [], "cooler": []}
@@ -166,6 +171,11 @@ def scrape_parts(region="us"):
     return result
 
 def scrape_cpu_cores(region="us"):
+    import asyncio
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
     api = API(region)
     data = api.retrieve("cpu")
     out = []
