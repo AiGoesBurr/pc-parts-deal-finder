@@ -10,7 +10,7 @@ try:
         _image_cache = _json.load(open(IMAGE_CACHE_PATH, encoding="utf-8"))
 except Exception:
     _image_cache = {}
-from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
+from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, has_request_context
 
 from cache import get_data, cache_info, get_price_history, is_scraping
 
@@ -18,7 +18,10 @@ app = Flask(__name__)
 
 @app.context_processor
 def inject_region():
-    reg = _region() if request else "us"
+    if has_request_context():
+        reg = _region()
+    else:
+        reg = "us"
     cache = get_data(region=reg)
     sym = "$"
     if cache:
@@ -38,12 +41,16 @@ CATS = {
 }
 
 def _region():
-    return request.args.get("region", "us")
+    if has_request_context():
+        return request.args.get("region", "us")
+    return "us"
 
 def _rows(cat):
     cache = get_data(region=_region())
+    if not cache:
+        return []
     key = CATS[cat]["key"]
-    return cache.get(key, []) if cache else []
+    return cache.get(key, []) if isinstance(cache.get(key), list) else []
 
 @app.route("/")
 def index():
