@@ -3,6 +3,15 @@
 {% block content %}
 <h2>Watchlist & price alerts</h2>
 <p class="muted small">Starred parts. Set a target price; items at or below target are highlighted.</p>
+<div class="card p-3 mb-3">
+  <h6>Email price alerts (optional)</h6>
+  <p class="muted small mb-2">Get an email when a watched part drops below its target. Requires SMTP to be configured on the server.</p>
+  <div class="d-flex gap-2">
+    <input id="subEmail" class="form-control form-control-sm" style="max-width:260px" placeholder="you@example.com">
+    <button class="btn btn-sm btn-primary" onclick="subscribe()">Subscribe</button>
+  </div>
+  <div id="subMsg" class="muted small mt-2"></div>
+</div>
 <div id="msg" class="muted"></div>
 <div class="table-responsive">
   <table class="table table-sm" id="wtable">
@@ -57,6 +66,17 @@ function setThreshold(cat,name,val){
   const it = w.find(x=>x.cat===cat && x.name===decodeURIComponent(name));
   if (it) it.threshold = val ? parseFloat(val) : null;
   localStorage.setItem("watchlist", JSON.stringify(w));
+}
+async function subscribe(){
+  const email = document.getElementById("subEmail").value.trim();
+  const msg = document.getElementById("subMsg");
+  if (!email){ msg.textContent = "Enter an email."; return; }
+  const items = watchlist.map(w=>({cat:w.cat, name:w.name, threshold:w.threshold}));
+  try {
+    const r = await fetch("/api/subscribe", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({email, items})});
+    const j = await r.json();
+    msg.textContent = j.ok ? "Subscribed "+email+" ("+j.count+" items)." : (j.error||"Failed");
+  } catch(e){ msg.textContent = "Failed: "+e; }
 }
 function removeWatch(cat,name){
   let w = JSON.parse(localStorage.getItem("watchlist")||"[]");
