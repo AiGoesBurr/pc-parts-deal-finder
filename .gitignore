@@ -5,8 +5,13 @@ __pycache__/
 
 # Cache / runtime
 data/cache.json
+data/images.json
 run.log
 run.err
+
+# Build
+build/
+dist/
 
 # Temp
 *.tmp
