@@ -61,6 +61,15 @@
     <tbody id="tbody"></tbody>
   </table>
 </div>
+<!-- Price history modal -->
+<div class="modal fade" id="histModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" style="background:#1e293b;color:#e2e8f0">
+      <div class="modal-header"><h5 class="modal-title" id="histTitle">Price history</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><canvas id="histChart" height="200"></canvas><p id="histMsg" class="muted small mt-2"></p></div>
+    </div>
+  </div>
+</div>
 <div class="d-flex justify-content-between align-items-center mt-2">
   <button class="btn btn-sm btn-primary" id="prev">Prev</button>
   <span class="muted small" id="pageinfo"></span>
@@ -68,6 +77,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 const CAT = "{{ cat }}";
 const META = {{ meta|tojson }};
@@ -78,20 +88,39 @@ let selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]"));
 function toggleSel(name, on){ if(on) selected.add(name); else selected.delete(name); localStorage.setItem(SEL_KEY, JSON.stringify([...selected])); }
 function updateCompareBtn(){ const b=document.getElementById("compareBtn"); if(!b) return; b.textContent = "Compare ("+selected.size+")"; b.disabled = selected.size < 2; }
 function goCompare(){ if(selected.size<2) return; window.location.href = "/compare?cat="+CAT; }
+async function showHistory(name){
+  name = decodeURIComponent(name);
+  document.getElementById("histTitle").textContent = "Price history: "+name;
+  document.getElementById("histMsg").textContent = "Loading...";
+  const modal = new bootstrap.Modal(document.getElementById("histModal"));
+  modal.show();
+  const res = await fetch("/api/history?cat="+CAT+"&name="+encodeURIComponent(name));
+  const j = await res.json();
+  const hist = j.history || [];
+  if (hist.length < 2){ document.getElementById("histMsg").textContent = "Not enough price history yet (need 2+ snapshots)."; return; }
+  document.getElementById("histMsg").textContent = hist.length + " snapshots.";
+  const ctx = document.getElementById("histChart").getContext("2d");
+  if (window._histChart) window._histChart.destroy();
+  window._histChart = new Chart(ctx, {
+    type: "line",
+    data: { labels: hist.map(h=>new Date(h.ts*1000).toLocaleDateString()), datasets: [{ label: "Price", data: hist.map(h=>h.price), borderColor: "#60a5fa", tension: 0.2 }] },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+}
 const PAGE_SIZE = 100;
 let sortKey = "value";
 let sortOrder = "desc";
 
 const COLUMNS = {
-  cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","buy"],
-  gpu: ["img","sel","name","brand","score","price","price_change_pct","value","buy"],
-  memory: ["img","sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","buy"],
-  storage: ["img","sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","buy"],
-  psu: ["img","sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","buy"],
-  motherboard: ["img","sel","name","brand","socket","form_factor","max_ram_gb","price","price_change_pct","value","buy"],
-  case: ["img","sel","name","brand","form_factor","color","price","price_change_pct","value","buy"],
-  cooler: ["img","sel","name","brand","radiator_size","decibels","price","price_change_pct","value","buy"],
-  prebuilt: ["img","sel","name","brand","price","price_change_pct","value","buy"],
+  cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","hist","buy"],
+  gpu: ["img","sel","name","brand","score","price","price_change_pct","value","hist","buy"],
+  memory: ["img","sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","buy"],
+  storage: ["img","sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","buy"],
+  psu: ["img","sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","hist","buy"],
+  motherboard: ["img","sel","name","brand","socket","form_factor","max_ram_gb","price","price_change_pct","value","hist","buy"],
+  case: ["img","sel","name","brand","form_factor","color","price","price_change_pct","value","hist","buy"],
+  cooler: ["img","sel","name","brand","radiator_size","decibels","price","price_change_pct","value","hist","buy"],
+  prebuilt: ["img","sel","name","brand","price","price_change_pct","value","hist","buy"],
 };
 
 function buySuffix(cat){
@@ -152,6 +181,7 @@ function render(){
   thead.innerHTML = "<tr>" + cols.map(c=> {
     if (c==="img") return `<th>Img</th>`;
     if (c==="sel") return `<th><input type="checkbox" id="selectAll"></th>`;
+    if (c==="hist") return `<th>Hist</th>`;
     if (c==="buy") return `<th>Buy</th>`;
     if (c==="price_change_pct") return `<th style="cursor:pointer" data-col="${c}">Δ%</th>`;
     if (c==="price") return `<th style="cursor:pointer" data-col="${c}">Price (est.)</th>`;
@@ -171,6 +201,7 @@ function render(){
       return `<td><img src="/api/image?q=${encodeURIComponent(r.name)}${linkParam}" loading="lazy" style="width:48px;height:48px;object-fit:contain;background:#0f172a;border-radius:4px" onerror="this.style.display='none'"></td>`;
     }
     if (c==="sel") return `<td><input type="checkbox" class="rowSel" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
+    if (c==="hist") return `<td><button class="btn btn-sm btn-outline-info" onclick="showHistory('${encodeURIComponent(r.name)}')">H</button></td>`;
     if (c==="buy") {
       if (CAT === "prebuilt") return `<td><a href="${r.link||r.source_url}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">View deal</a></td>`;
       return `<td>${buyLinks(r.name)}</td>`;

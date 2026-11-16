@@ -12,7 +12,7 @@ except Exception:
     _image_cache = {}
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
 
-from cache import get_data, cache_info
+from cache import get_data, cache_info, get_price_history
 
 app = Flask(__name__)
 
@@ -362,6 +362,14 @@ def _fetch_image_url(q, link=None):
     except Exception:
         pass
     return url
+
+@app.route("/api/history")
+def api_history():
+    cat = request.args.get("cat", "")
+    name = request.args.get("name", "")
+    if not cat or not name:
+        return jsonify({"history": []})
+    return jsonify({"history": get_price_history(cat, name)})
 
 @app.route("/api/image")
 def api_image():

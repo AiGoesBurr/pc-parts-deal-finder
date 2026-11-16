@@ -4,6 +4,32 @@ from datetime import datetime
 CACHE_PATH = os.path.join(os.path.dirname(__file__), "data", "cache.json")
 CACHE_TTL = 10 * 60  # 10 minutes
 
+HISTORY_PATH = os.path.join(os.path.dirname(__file__), "data", "price_history.json")
+
+def _load_history():
+    try:
+        if os.path.exists(HISTORY_PATH):
+            return json.load(open(HISTORY_PATH, encoding="utf-8"))
+    except Exception:
+        pass
+    return []
+
+def _save_history(h):
+    try:
+        os.makedirs(os.path.dirname(HISTORY_PATH), exist_ok=True)
+        json.dump(h, open(HISTORY_PATH, "w", encoding="utf-8"))
+    except Exception:
+        pass
+
+def get_price_history(cat, name):
+    h = _load_history()
+    out = []
+    for snap in h:
+        price = (snap.get("prices", {}).get(cat, {}) or {}).get(name)
+        if price is not None:
+            out.append({"ts": snap.get("ts"), "price": price})
+    return out
+
 def _price_map(cache):
     m = {}
     if not cache:
@@ -166,6 +192,28 @@ def get_data(force=False):
                 r["price_change_pct"] = round((r["price"] - old) / old * 100, 2)
             else:
                 r["price_change_pct"] = None
+    # append price history snapshot (one per day)
+    try:
+        from datetime import date
+        today = date.today().isoformat()
+        h = _load_history()
+        if not h or h[-1].get("date") != today:
+            snap = {"date": today, "ts": __import__("time").time(), "prices": {}}
+            for k, rows in payload.items():
+                if not isinstance(rows, list):
+                    continue
+                pm = {}
+                for r in rows:
+                    if isinstance(r, dict) and r.get("name") and r.get("price") is not None:
+                        pm[r["name"]] = r["price"]
+                if pm:
+                    snap["prices"][k] = pm
+            h.append(snap)
+            # keep last 90 days
+            h = h[-90:]
+            _save_history(h)
+    except Exception:
+        pass
     save_cache(payload)
     return load_cache()
 
