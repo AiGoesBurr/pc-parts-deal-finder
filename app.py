@@ -239,6 +239,17 @@ def compat():
 def watchlist():
     return render_template("watchlist.html", cats=CATS)
 
+@app.route("/leaderboard")
+def leaderboard():
+    cache = get_data()
+    boards = {}
+    if cache:
+        for cat, meta in CATS.items():
+            rows = [r for r in (cache.get(meta["key"], []) or []) if r.get("value")]
+            rows.sort(key=lambda r: r.get("value") or 0, reverse=True)
+            boards[cat] = (meta, rows[:15])
+    return render_template("leaderboard.html", boards=boards, cats=CATS)
+
 @app.route("/savedbuilds")
 def savedbuilds():
     return render_template("savedbuilds.html", cats=CATS)

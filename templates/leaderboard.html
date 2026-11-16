@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<h2>Performance-per-dollar leaderboard</h2>
+<p class="muted small">Top 15 parts per category ranked by Value (higher = better bang for buck).</p>
+{% for cat, (meta, rows) in boards.items() %}
+<div class="card p-3 mb-3">
+  <h5>{{ meta.title }}</h5>
+  <table class="table table-sm">
+    <thead><tr><th>#</th><th>Name</th><th>Price</th><th>Value</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr><td>{{ loop.index }}</td><td><a href="/category/{{ cat }}?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+{% endblock %}
