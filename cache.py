@@ -3,32 +3,49 @@ from datetime import datetime
 
 REGION_CURRENCY = {"us":"USD","uk":"GBP","ca":"CAD","au":"AUD","de":"EUR","fr":"EUR","es":"EUR","it":"EUR","in":"INR","nz":"NZD","ie":"EUR","be":"EUR","se":"SEK"}
 CURRENCY_SYMBOL = {"USD":"$","GBP":chr(163),"CAD":"C$","AUD":"A$","EUR":chr(8364),"INR":chr(8377),"NZD":"NZ$","SEK":"kr"}
-
-def _cache_path(region="us"):
-    return os.path.join(os.path.dirname(__file__), "data", f"cache_{region}.json")
-
-def _fx_rate(region):
-    if region == "us":
-        return 1.0
-    cur = REGION_CURRENCY.get(region, "USD")
-    if cur == "USD":
-        return 1.0
-    try:
-        import urllib.request, json
-        url = f"https://api.exchangerate.host/latest?base=USD&symbols={cur}"
-        with urllib.request.urlopen(url, timeout=10) as r:
-            d = json.loads(r.read())
-        return float(d["rates"][cur])
-    except Exception:
-        return 1.0
-
+ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
 CACHE_TTL = 10 * 60  # 10 minutes
-
-HISTORY_PATH = os.path.join(os.path.dirname(__file__), "data", "price_history.json")
+DATA_KEYS = ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts","monitor","keyboard","mouse","headphones")
 
 _scrape_lock = threading.Lock()
 _scrape_thread = None
-_scrape_region = "us"
+_fx_state = {"at": 0.0, "rates": None}
+
+
+def _valid_region(region):
+    return region if region in REGION_CURRENCY else "us"
+
+def _cache_path(region="us"):
+    return os.path.join(os.path.dirname(__file__), "data", f"cache_{_valid_region(region)}.json")
+
+def _history_path(region="us"):
+    return os.path.join(os.path.dirname(__file__), "data", f"price_history_{_valid_region(region)}.json")
+
+def _ecb_rates():
+    import urllib.request
+    import xml.etree.ElementTree as ET
+    if _fx_state["rates"] and time.time() - _fx_state["at"] < 12 * 3600:
+        return _fx_state["rates"]
+    with urllib.request.urlopen(ECB_URL, timeout=15) as r:
+        root = ET.fromstring(r.read())
+    rates = {"EUR": 1.0}
+    for el in root.iter():
+        cur, rate = el.attrib.get("currency"), el.attrib.get("rate")
+        if cur and rate:
+            rates[cur] = float(rate)
+    _fx_state["rates"], _fx_state["at"] = rates, time.time()
+    return rates
+
+def _fx_rate(region):
+    """Multiplier from USD to the region's currency, or None when no rate is available."""
+    cur = REGION_CURRENCY.get(_valid_region(region), "USD")
+    if cur == "USD":
+        return 1.0
+    try:
+        rates = _ecb_rates()
+        return rates[cur] / rates["USD"]
+    except Exception:
+        return None
 
 def _ensure_dir():
     os.makedirs(os.path.dirname(_cache_path()), exist_ok=True)
@@ -44,6 +61,7 @@ def load_cache(region="us"):
         return None
 
 def save_cache(payload, region="us"):
+    region = _valid_region(region)
     _ensure_dir()
     payload["_saved_at"] = time.time()
     payload["_saved_at_iso"] = datetime.now().isoformat(timespec="seconds")
@@ -63,7 +81,7 @@ def _price_map(cache):
     m = {}
     if not cache:
         return m
-    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts","monitor","keyboard","mouse","headphones"):
+    for k in DATA_KEYS:
         pm = {}
         for r in (cache.get(k) or []):
             if isinstance(r, dict) and r.get("name") and r.get("price") is not None:
@@ -72,23 +90,24 @@ def _price_map(cache):
             m[k] = pm
     return m
 
-def _load_history():
+def _load_history(region="us"):
     try:
-        if os.path.exists(HISTORY_PATH):
-            return json.load(open(HISTORY_PATH, encoding="utf-8"))
+        p = _history_path(region)
+        if os.path.exists(p):
+            return json.load(open(p, encoding="utf-8"))
     except Exception:
         pass
     return []
 
-def _save_history(h):
+def _save_history(h, region="us"):
     try:
-        os.makedirs(os.path.dirname(HISTORY_PATH), exist_ok=True)
-        json.dump(h, open(HISTORY_PATH, "w", encoding="utf-8"), ensure_ascii=False)
+        os.makedirs(os.path.dirname(_history_path(region)), exist_ok=True)
+        json.dump(h, open(_history_path(region), "w", encoding="utf-8"), ensure_ascii=False)
     except Exception:
         pass
 
-def get_price_history(cat, name):
-    h = _load_history()
+def get_price_history(cat, name, region="us"):
+    h = _load_history(_valid_region(region))
     out = []
     for snap in h:
         price = (snap.get("prices", {}).get(cat, {}) or {}).get(name)
@@ -98,6 +117,7 @@ def get_price_history(cat, name):
 
 def _do_scrape(region="us"):
     global _scrape_thread
+    region = _valid_region(region)
     try:
         cache = load_cache(region)
         old_prices = _price_map(cache) if cache else {}
@@ -220,24 +240,36 @@ def _do_scrape(region="us"):
         except Exception as e:
             payload["prebuilts"] = []
             payload["prebuilt_error"] = str(e)
-        for k in ("memory","storage","psu","motherboard","case","cooler","prebuilts","monitor","keyboard","mouse","headphones"):
+        for k in DATA_KEYS:
             payload.setdefault(k, [])
-        # currency conversion for non-USD regions
+        # keep the last good data for any source that failed or came back much smaller
+        kept = []
+        for k in DATA_KEYS:
+            new_rows = payload.get(k) or []
+            old_rows = (cache or {}).get(k) or []
+            if old_rows and len(new_rows) < 0.5 * len(old_rows):
+                payload[k] = old_rows
+                kept.append(k)
+        payload["_kept_previous"] = kept
+        # currency conversion: CPU and GPU prices come from PassMark in USD
         rate = _fx_rate(region)
         cur = REGION_CURRENCY.get(region, "USD")
         payload["_currency"] = cur
         payload["_currency_symbol"] = CURRENCY_SYMBOL.get(cur, "$")
-        if rate != 1.0:
-            for k in ("cpus","gpus"):
-                for r in (payload.get(k) or []):
-                    if isinstance(r, dict) and r.get("price") is not None:
-                        r["price"] = round(r["price"] * rate, 2)
-                        if r.get("value") is not None and r.get("price"):
-                            # recompute value with converted price
-                            if k == "cpus" and r.get("mark"):
-                                r["value"] = round(r["mark"] / r["price"], 2)
-                            elif k == "gpus" and r.get("score"):
-                                r["value"] = round(r["score"] / r["price"], 2)
+        payload["_fx_ok"] = rate is not None
+        for k in ("cpus", "gpus"):
+            for r in (payload.get(k) or []):
+                if not isinstance(r, dict) or r.get("price") is None:
+                    continue
+                if rate is None:
+                    r["price"] = None
+                    r["value"] = None
+                elif rate != 1.0:
+                    r["price"] = round(r["price"] * rate, 2)
+                    if k == "cpus" and r.get("mark"):
+                        r["value"] = round(r["mark"] / r["price"], 2)
+                    elif k == "gpus" and r.get("score"):
+                        r["value"] = round(r["score"] / r["price"], 2)
         # annotate price change vs previous scrape
         for k, rows in payload.items():
             if not isinstance(rows, list):
@@ -252,13 +284,13 @@ def _do_scrape(region="us"):
                     r["price_change_pct"] = round((r["price"] - old) / old * 100, 2)
                 else:
                     r["price_change_pct"] = None
-        # append price history snapshot (one per day)
+        # append one price history snapshot per day, per region
         try:
             from datetime import date
             today = date.today().isoformat()
-            h = _load_history()
+            h = _load_history(region)
             if not h or h[-1].get("date") != today:
-                snap = {"date": today, "ts": time.time(), "prices": {}}
+                snap = {"date": today, "ts": time.time(), "region": region, "prices": {}}
                 for k, rows in payload.items():
                     if not isinstance(rows, list):
                         continue
@@ -270,23 +302,21 @@ def _do_scrape(region="us"):
                         snap["prices"][k] = pm
                 h.append(snap)
                 h = h[-90:]
-                _save_history(h)
+                _save_history(h, region)
         except Exception:
             pass
         save_cache(payload, region)
     finally:
-        global _scrape_thread, _scrape_region
         _scrape_thread = None
-        _scrape_region = region
 
 def get_data(force=False, region="us"):
-    global _scrape_thread, _scrape_region
+    global _scrape_thread
+    region = _valid_region(region)
     cache = load_cache(region)
     if (not force) and cache and not is_stale(cache):
         return cache
     with _scrape_lock:
         if _scrape_thread is None or not _scrape_thread.is_alive():
-            _scrape_region = region
             _scrape_thread = threading.Thread(target=_do_scrape, args=(region,), daemon=True)
             _scrape_thread.start()
     return cache
@@ -296,9 +326,15 @@ def is_scraping():
 
 def cache_info(cache):
     if not cache:
-        return {"saved_at": None, "counts": {}}
+        return {"saved_at": None, "counts": {}, "notes": []}
     counts = {}
-    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts","monitor","keyboard","mouse","headphones"):
+    for k in DATA_KEYS:
         v = cache.get(k)
         counts[k] = len(v) if isinstance(v, list) else 0
-    return {"saved_at": cache.get("_saved_at_iso"), "counts": counts}
+    notes = []
+    if cache.get("_fx_ok") is False:
+        notes.append("Currency conversion is unavailable right now, so CPU and GPU prices are hidden for this region.")
+    kept = cache.get("_kept_previous") or []
+    if kept:
+        notes.append("Some sources failed on the last refresh, so the last good data is shown for: " + ", ".join(kept) + ".")
+    return {"saved_at": cache.get("_saved_at_iso"), "counts": counts, "notes": notes}

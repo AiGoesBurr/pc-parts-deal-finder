@@ -32,7 +32,8 @@
       <button id="compareBtn" class="btn btn-sm btn-warning w-100" disabled onclick="goCompare()">Compare</button>
     </div>
   </div>
-  <div class="row g-2 mt-1" id="extraFilters">
+  <div class="row g-2 mt-1 align-items-center" id="extraFilters">
+    <div class="col-md-3"><label class="small mb-0"><input type="checkbox" id="eligibleOnly" checked> Current &amp; priced parts only</label></div>
     {% if cat == 'cpu' %}
     <div class="col-md-2"><input id="minCores" class="form-control" type="number" step="1" placeholder="Min cores"></div>
     <div class="col-md-2"><input id="maxCores" class="form-control" type="number" step="1" placeholder="Max cores"></div>
@@ -113,7 +114,7 @@ async function fetchLive(name, btn){
     const r = await fetch("/api/liveprice?q="+encodeURIComponent(name));
     const j = await r.json();
     if (j.price) btn.textContent = CURRENCY+Math.round(j.price*100)/100;
-    else btn.textContent = "N/A";
+    else { btn.textContent = "No API"; btn.title = j.note || "Live price unavailable"; }
   } catch(e){ btn.textContent = "Err"; }
   btn.disabled = false;
 }
@@ -123,7 +124,7 @@ async function showHistory(name){
   document.getElementById("histMsg").textContent = "Loading...";
   const modal = new bootstrap.Modal(document.getElementById("histModal"));
   modal.show();
-  const res = await fetch("/api/history?cat="+CAT+"&name="+encodeURIComponent(name));
+  const res = await fetch("/api/history?cat="+CAT+"&name="+encodeURIComponent(name)+"&region="+encodeURIComponent("{{ region }}"));
   const j = await res.json();
   const hist = j.history || [];
   if (hist.length < 2){ document.getElementById("histMsg").textContent = "Not enough price history yet (need 2+ snapshots)."; return; }
@@ -141,7 +142,7 @@ let sortKey = "value";
 let sortOrder = "desc";
 
 const COLUMNS = {
-  cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","hist","watch","live","buy"],
+  cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","watch","live","buy"],
   gpu: ["img","sel","name","brand","score","vram_gb","length","price","price_change_pct","value","hist","watch","live","buy"],
   memory: ["img","sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","live","buy"],
   storage: ["img","sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","live","buy"],
@@ -184,7 +185,7 @@ function buyLinks(name){
 
 function fmt(v){
   if (v === null || v === undefined) return "";
-  if (typeof v === "object") return JSON.stringify(v);
+  if (typeof v === "object") return (v.default ?? v.max ?? JSON.stringify(v));
   if (typeof v === "number") return (Math.round(v*100)/100);
   return v;
 }
@@ -194,6 +195,7 @@ async function loadData(){
   params.set("sort", sortKey);
   params.set("order", sortOrder);
   params.set("limit", "100000");
+  if (document.getElementById("eligibleOnly").checked) params.set("eligible", "1");
   const q = document.getElementById("q").value.trim();
   if (q) params.set("q", q);
   const minP = document.getElementById("minPrice").value.trim();
@@ -270,6 +272,7 @@ function render(){
       const sign = v > 0 ? "+" : "";
       return `<td style="color:${color};font-weight:600">${sign}${fmt(v)}%</td>`;
     }
+    if (c==="price" && (r[c]===null || r[c]===undefined)) return `<td class="muted">no price</td>`;
     return `<td>${fmt(r[c])}</td>`;
   }).join("") + "</tr>").join("");
   document.querySelectorAll(".rowSel").forEach(cb=>{
@@ -308,6 +311,7 @@ const _ff = document.getElementById("formFactor");
 if (_ff) _ff.addEventListener("change", ()=>{ page=0; loadData(); });
 const _st = document.getElementById("storageType");
 if (_st) _st.addEventListener("change", ()=>{ page=0; loadData(); });
+document.getElementById("eligibleOnly").addEventListener("change", ()=>{ page=0; loadData(); });
 document.getElementById("sort").addEventListener("change", (e)=>{ sortKey=e.target.value; page=0; loadData(); });
 document.getElementById("order").addEventListener("change", (e)=>{ sortOrder=e.target.value; page=0; loadData(); });
 document.getElementById("prev").onclick = ()=>{ if(page>0){page--; render();} };

@@ -2,6 +2,7 @@
 {% block title %}Dashboard - PC Parts Deal Finder{% endblock %}
 {% block content %}
 <div id="loadingBanner" class="alert alert-info" style="display:none">Data is being gathered. The page will refresh when ready.</div>
+{% for n in info.notes %}<div class="alert alert-warning small">{{ n }}</div>{% endfor %}
 <div class="hero mb-4 rounded">
   <div class="container">
     <h1 class="display-6">Best bang-for-your-buck PC parts</h1>
@@ -93,7 +94,7 @@
 
 <div class="card p-3 mt-4">
   <h5>How "Value" is calculated</h5>
-  <p class="small mb-2">Higher Value = better bang for your buck. Rows sort by Value descending by default; entries with no price get null Value and sort to the bottom.</p>
+  <p class="small mb-2">Higher Value = better bang for your buck. Rows sort by Value descending by default; entries with no price get null Value and sort to the bottom. The top lists show only current-generation parts with a real price.</p>
   <ul class="small mb-0">
     <li><strong>CPU</strong>: CPU Mark ÷ price (PassMark CPU Value) — more benchmark performance per dollar.</li>
     <li><strong>GPU</strong>: G3D Mark ÷ price — more graphics performance per dollar.</li>

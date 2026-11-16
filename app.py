@@ -12,7 +12,9 @@ except Exception:
     _image_cache = {}
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, has_request_context
 
-from cache import get_data, cache_info, get_price_history, is_scraping
+from cache import get_data, cache_info, get_price_history, is_scraping, REGION_CURRENCY
+from ranking import is_eligible
+from autobuild import build_within_budget
 
 app = Flask(__name__)
 
@@ -45,9 +47,8 @@ CATS = {
 }
 
 def _region():
-    if has_request_context():
-        return request.args.get("region", "us")
-    return "us"
+    region = request.args.get("region", "us") if has_request_context() else "us"
+    return region if region in REGION_CURRENCY else "us"
 
 def _rows(cat):
     cache = get_data(region=_region())
@@ -61,19 +62,19 @@ def index():
     cache = get_data(region=_region())
     info = cache_info(cache)
     # top picks
-    def top(key, n=6):
+    def top(key, cat, n=6):
         rows = cache.get(key, []) if cache else []
-        rows = [r for r in rows if r.get("value")]
+        rows = [r for r in rows if is_eligible(cat, r) and r.get("value")]
         rows.sort(key=lambda r: r.get("value") or 0, reverse=True)
         return rows[:n]
-    top_cpu = top("cpus")
-    top_gpu = top("gpus")
-    # memory/storage best by price_per_gb asc
-    mem = [r for r in (cache.get("memory", []) if cache else []) if r.get("price_per_gb")]
+    top_cpu = top("cpus", "cpu")
+    top_gpu = top("gpus", "gpu")
+    # memory/storage/psu best by price, among current priced parts only
+    mem = [r for r in (cache.get("memory", []) if cache else []) if is_eligible("memory", r) and r.get("price_per_gb")]
     mem.sort(key=lambda r: r["price_per_gb"])
-    stor = [r for r in (cache.get("storage", []) if cache else []) if r.get("price_per_gb")]
+    stor = [r for r in (cache.get("storage", []) if cache else []) if is_eligible("storage", r) and r.get("price_per_gb")]
     stor.sort(key=lambda r: r["price_per_gb"])
-    psu = [r for r in (cache.get("psu", []) if cache else []) if r.get("price_per_watt")]
+    psu = [r for r in (cache.get("psu", []) if cache else []) if is_eligible("psu", r) and r.get("price_per_watt")]
     psu.sort(key=lambda r: r["price_per_watt"])
     return render_template("index.html", info=info, top_cpu=top_cpu, top_gpu=top_gpu,
                            top_mem=mem[:6], top_stor=stor[:6], top_psu=psu[:6], cats=CATS)
@@ -84,11 +85,25 @@ def category(cat):
         return redirect(url_for("index"))
     return render_template("category.html", cat=cat, meta=CATS[cat], cats=CATS)
 
+def _sort_key(v):
+    if v is None:
+        return None
+    if isinstance(v, dict):
+        for k in ("default", "max", "min"):
+            if isinstance(v.get(k), (int, float)):
+                return (0, float(v[k]))
+        return None
+    if isinstance(v, (int, float)):
+        return (0, float(v))
+    return (1, str(v).lower())
+
 @app.route("/api/data/<cat>")
 def api_data(cat):
     if cat not in CATS:
         return jsonify({"error": "unknown category"}), 404
     rows = _rows(cat)
+    if request.args.get("eligible") == "1":
+        rows = [r for r in rows if is_eligible(cat, r)]
     q = (request.args.get("q") or "").strip().lower()
     if q:
         rows = [r for r in rows if q in (r.get("name") or "").lower() or q in (r.get("brand") or "").lower() or q in str(r.get("model") or "").lower()]
@@ -161,23 +176,17 @@ def api_data(cat):
     sort = request.args.get("sort", "value")
     order = request.args.get("order", "desc")
     reverse = order == "desc"
+    keyed = [(r, _sort_key(r.get(sort))) for r in rows]
+    non_null = [(r, k) for r, k in keyed if k is not None]
+    nulls = [r for r, k in keyed if k is None]
+    non_null.sort(key=lambda t: t[1], reverse=reverse)
+    rows_sorted = [r for r, _ in non_null] + nulls
 
-    def is_none(r):
-        return r.get(sort) is None
-
-    # separate nulls to end regardless of order
-    non_null = [r for r in rows if r.get(sort) is not None]
-    nulls = [r for r in rows if r.get(sort) is None]
-
-    sample = non_null[0].get(sort) if non_null else None
-    if isinstance(sample, str):
-        non_null.sort(key=lambda r: str(r.get(sort)).lower(), reverse=reverse)
-    else:
-        non_null.sort(key=lambda r: r.get(sort), reverse=reverse)
-    rows_sorted = non_null + nulls
-
-    offset = int(request.args.get("offset", 0))
-    limit = int(request.args.get("limit", 200))
+    try:
+        offset = max(0, int(request.args.get("offset", 0)))
+        limit = max(1, min(100000, int(request.args.get("limit", 200))))
+    except ValueError:
+        offset, limit = 0, 200
     page = rows_sorted[offset:offset+limit]
     return jsonify({"total": len(rows_sorted), "rows": page, "cat": cat})
 
@@ -297,7 +306,7 @@ def leaderboard():
     boards = {}
     if cache:
         for cat, meta in CATS.items():
-            rows = [r for r in (cache.get(meta["key"], []) or []) if r.get("value")]
+            rows = [r for r in (cache.get(meta["key"], []) or []) if is_eligible(cat, r) and r.get("value")]
             rows.sort(key=lambda r: r.get("value") or 0, reverse=True)
             boards[cat] = (meta, rows[:15])
     return render_template("leaderboard.html", boards=boards, cats=CATS)
@@ -343,24 +352,6 @@ def _fetch_image_url(q, link=None):
             m = re.search(r'<meta property="og:image" content="([^"]+)"', r.text)
             if m:
                 url = m.group(1)
-        except Exception:
-            url = None
-    # 2. Amazon first product image (try full then shorter queries)
-    if not url:
-        try:
-            import cloudscraper
-            s = cloudscraper.create_scraper()
-            aq = q
-            if any(w in low for w in ["ryzen", "core i", "core ultra", "xeon", "threadripper", "epyc"]):
-                aq = q + " processor"
-            elif any(w in low for w in ["rtx", "gtx", "radeon", "geforce", "arc a", "arc b"]):
-                aq = q + " graphics card"
-            for tryq in [aq] + [t + (" processor" if ("ryzen" in low or "core i" in low) else (" graphics card" if ("rtx" in low or "radeon" in low) else "")) for t in queries[1:]]:
-                r = s.get("https://www.amazon.com/s?k=" + urllib.request.quote(tryq), timeout=20)
-                m = re.search(r'<img[^>]*class="s-image"[^>]*src="([^"]+)"', r.text)
-                if m:
-                    url = m.group(1)
-                    break
         except Exception:
             url = None
     # 3. Manufacturer-domain Bing image
@@ -415,35 +406,11 @@ def api_history():
     name = request.args.get("name", "")
     if not cat or not name:
         return jsonify({"history": []})
-    return jsonify({"history": get_price_history(cat, name)})
+    return jsonify({"history": get_price_history(cat, name, _region())})
 
 @app.route("/api/liveprice")
 def api_liveprice():
-    q = request.args.get("q", "").strip()
-    if not q:
-        return jsonify({"price": None})
-    try:
-        import cloudscraper, re
-        s = cloudscraper.create_scraper()
-        # infer type
-        aq = q
-        low = q.lower()
-        if any(w in low for w in ["ryzen", "core i", "core ultra", "xeon", "threadripper", "epyc"]):
-            aq = q + " processor"
-        elif any(w in low for w in ["rtx", "gtx", "radeon", "geforce", "arc a", "arc b"]):
-            aq = q + " graphics card"
-        r = s.get("https://www.amazon.com/s?k=" + urllib.request.quote(aq), timeout=20)
-        # find the first product block price: look for "a-price" with whole+fraction
-        m = re.search(r'class="a-price"[^>]*>.*?<span class="a-offscreen">\$([\d,]+\.\d{2})</span>', r.text, re.S)
-        if m:
-            return jsonify({"price": float(m.group(1).replace(",", ""))})
-        # fallback: first price in text
-        prices = re.findall(r'\$\s*([\d,]+\.\d{2})', r.text)
-        if prices:
-            return jsonify({"price": float(prices[0].replace(",", ""))})
-    except Exception:
-        pass
-    return jsonify({"price": None})
+    return jsonify({"price": None, "note": "Live Amazon prices need an Amazon Product Advertising API key, which isn't set up yet."})
 
 @app.route("/api/image")
 def api_image():
@@ -456,6 +423,17 @@ def api_image():
         return ("", 204)
     from flask import redirect
     return redirect(url, code=302)
+
+@app.route("/api/autobuild")
+def api_autobuild():
+    try:
+        budget = float(request.args.get("budget", "1000"))
+    except ValueError:
+        return jsonify({"ok": False, "message": "Budget must be a number."}), 400
+    if budget < 300 or budget > 10000:
+        return jsonify({"ok": False, "message": "Choose a budget between 300 and 10,000."}), 400
+    cache = get_data(region=_region()) or {}
+    return jsonify(build_within_budget(cache, budget))
 
 @app.route("/search")
 def search():

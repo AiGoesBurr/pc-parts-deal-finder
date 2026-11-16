@@ -2,9 +2,10 @@
 {% block title %}Build Calculator - PC Parts Deal Finder{% endblock %}
 {% block content %}
 <h2>PC build cost calculator</h2>
-<p class="muted small">Pick one part from each category to estimate total build cost. Use "Auto-suggest best value" to fill with top-value picks.</p>
+<p class="muted small">Pick one part from each category to estimate total build cost, or let auto-build choose parts that fit together for your budget.</p>
+<div id="buildNotice" class="card p-3 mb-3 small" style="display:none"></div>
 <div class="mb-3">
-  <button class="btn btn-sm btn-primary" onclick="autoSuggest()">Auto-suggest best value build</button>
+  <button class="btn btn-sm btn-primary" onclick="autoSuggest()">Auto-suggest build</button>
   <button class="btn btn-sm btn-outline-light ms-2" onclick="clearBuild()">Clear</button>
   <button class="btn btn-sm btn-success ms-2" onclick="exportBuild()">Export build</button>
   <button class="btn btn-sm btn-warning ms-2" onclick="saveBuild()">Save build</button>
@@ -42,7 +43,7 @@ const CAT_ORDER = ["cpu","gpu","memory","storage","psu","motherboard","case","co
 let cache = {};
 async function loadCat(cat){
   if (cache[cat]) return cache[cat];
-  const r = await fetch("/api/data/"+cat+"?sort=value&order=desc&limit=100000");
+  const r = await fetch("/api/data/"+cat+"?sort=value&order=desc&limit=100000&eligible=1");
   const j = await r.json();
   cache[cat] = j.rows;
   return j.rows;
@@ -107,6 +108,11 @@ function updateTotal(){
   document.getElementById("breakdown").innerHTML = bd.join("<br>");
   checkCompat();
 }
+function normSocket(s){
+  if (!s) return null;
+  s = String(s).replace(/^Socket\s+/i, "").trim();
+  return /^\d{4}/.test(s) ? "LGA" + s : s;
+}
 async function checkCompat(){
   const cpu = (cache.cpu||[]).find(r=>r.name===document.getElementById("sel_cpu").value);
   const mb = (cache.motherboard||[]).find(r=>r.name===document.getElementById("sel_motherboard").value);
@@ -115,8 +121,9 @@ async function checkCompat(){
   const psu = (cache.psu||[]).find(r=>r.name===document.getElementById("sel_psu").value);
   const issues=[], ok=[];
   if (cpu && mb){
-    if (cpu.socket && mb.socket && cpu.socket===mb.socket) ok.push("CPU socket matches motherboard ("+cpu.socket+").");
-    else if (cpu.socket && mb.socket) issues.push("CPU socket ("+cpu.socket+") != motherboard ("+mb.socket+").");
+    const cs = normSocket(cpu.socket), ms = normSocket(mb.socket);
+    if (cs && ms && cs===ms) ok.push("CPU socket matches motherboard ("+cs+").");
+    else if (cs && ms) issues.push("CPU socket ("+cs+") does not match motherboard ("+ms+").");
   }
   if (ram && mb){
     ok.push("RAM type: "+(ram.module_type||"?")+". Ensure motherboard supports it.");
@@ -135,36 +142,51 @@ async function checkCompat(){
   if (!cpu && !mb && !ram && !psu) html = "Select parts to check.";
   document.getElementById("compatResult").innerHTML = html;
 }
-async function autoSuggest(){
+function applyBuildNotice(html){
+  const el = document.getElementById("buildNotice");
+  el.style.display = "block";
+  el.innerHTML = html;
+}
+async function applyAutoBuild(budget){
+  applyBuildNotice("Building a compatible list...");
+  let j;
+  try {
+    const r = await fetch("/api/autobuild?budget=" + encodeURIComponent(budget));
+    j = await r.json();
+  } catch (e) {
+    applyBuildNotice("Could not build a list right now. Try again.");
+    return;
+  }
+  if (!j.ok){
+    applyBuildNotice("<strong>" + (j.message || "No build found.") + "</strong>");
+    return;
+  }
   for (const cat of CAT_ORDER){
-    const rows = await loadCat(cat);
-    const pick = rows.find(r=>r.value) || rows[0];
-    if (pick){
-      const sel = document.getElementById("sel_"+cat);
-      for (let i=0;i<sel.options.length;i++){
-        if (sel.options[i].value === pick.name){ sel.selectedIndex = i; break; }
-      }
+    const sel = document.getElementById("sel_"+cat);
+    if (!sel) continue;
+    sel.selectedIndex = 0;
+    const pick = j.picks[cat];
+    if (!pick) continue;
+    for (let i=0;i<sel.options.length;i++){
+      const o = sel.options[i];
+      if (o.value === pick.name && Math.abs(parseFloat(o.dataset.price) - pick.price) < 0.005){ sel.selectedIndex = i; break; }
     }
   }
   updateTotal();
+  applyBuildNotice(
+    "<strong>Platform: " + (j.platform || "unknown") + "</strong> &middot; Total " + CURRENCY + j.total.toFixed(2) +
+    " of " + CURRENCY + j.budget + " (" + CURRENCY + j.leftover.toFixed(2) + " left)." +
+    "<ul class='mb-0 mt-1'>" + j.warnings.map(w => "<li>" + w + "</li>").join("") + "</ul>"
+  );
+}
+async function autoSuggest(){
+  const b = parseFloat(document.getElementById("budget").value) || 1000;
+  await applyAutoBuild(b);
 }
 async function autoBuildBudget(){
   const budget = parseFloat(document.getElementById("budget").value);
   if (!budget || budget <= 0){ alert("Enter a budget."); return; }
-  let remaining = budget;
-  for (const cat of CAT_ORDER){
-    const rows = await loadCat(cat);
-    // pick highest value item with price <= remaining
-    const candidates = rows.filter(r=>r.price && r.price <= remaining && r.value).sort((a,b)=> (b.value||0)-(a.value||0));
-    const pick = candidates.length ? candidates[0] : rows.filter(r=>r.price && r.price<=remaining).sort((a,b)=>a.price-b.price)[0];
-    const sel = document.getElementById("sel_"+cat);
-    if (pick && sel){
-      for (let i=0;i<sel.options.length;i++){ if (sel.options[i].value === pick.name){ sel.selectedIndex=i; break; } }
-      remaining -= (pick.price||0);
-    } else if (sel) sel.selectedIndex = 0;
-  }
-  updateTotal();
-  alert("Built within budget. Remaining: " + CURRENCY + remaining.toFixed(2));
+  await applyAutoBuild(budget);
 }
 function clearBuild(){
   for (const cat of CAT_ORDER){

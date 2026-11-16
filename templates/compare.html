@@ -28,15 +28,21 @@ const FIELDS = {
   motherboard: ["name","brand","socket","form_factor","max_ram_gb","price","value"],
   case: ["name","brand","form_factor","color","price","value"],
   cooler: ["name","brand","radiator_size","decibels","price","value"],
+  prebuilt: ["name","brand","price","value"],
+  monitor: ["name","brand","size","resolution","refresh_rate","price","value"],
+  keyboard: ["name","brand","style","switches","connection","price","value"],
+  mouse: ["name","brand","tracking","connection","max_dpi","price","value"],
+  headphones: ["name","brand","form_factor","is_wireless","price","value"],
 };
-function fmt(v){ if(v===null||v===undefined) return ""; if(typeof v==="object") return JSON.stringify(v); if(typeof v==="number") return Math.round(v*100)/100; return v; }
+function fmt(v){ if(v===null||v===undefined) return ""; if(typeof v==="object") return (v.default ?? v.max ?? JSON.stringify(v)); if(typeof v==="number") return Math.round(v*100)/100; return v; }
 async function load(){
   if (selected.size < 2){ document.getElementById("msg").textContent = "Select at least 2 items on the category page."; return; }
   const res = await fetch("/api/data/"+CAT+"?limit=100000");
   const j = await res.json();
   const items = j.rows.filter(r => selected.has(r.name));
   if (items.length < 2){ document.getElementById("msg").textContent = "Selected items not found."; return; }
-  const fields = FIELDS[CAT];
+  const skip = ["source","source_url","prev_price","price_change_pct","category","link","percent","model"];
+  const fields = FIELDS[CAT] || Object.keys(items[0]).filter(k => !skip.includes(k));
   const thead = document.getElementById("chead");
   thead.innerHTML = "<tr><th>Field</th>" + items.map(it=>`<th>${it.name}</th>`).join("") + "</tr>";
   const tbody = document.getElementById("cbody");

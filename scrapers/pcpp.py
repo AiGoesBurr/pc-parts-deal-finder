@@ -5,7 +5,8 @@ def _money(m):
     if m is None:
         return None
     try:
-        return float(m.amount)
+        value = float(m.amount)
+        return value if value > 0 else None
     except Exception:
         try:
             return float(str(m).split()[-1] if hasattr(m, "__str__") else None)
