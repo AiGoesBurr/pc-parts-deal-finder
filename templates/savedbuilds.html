@@ -9,6 +9,7 @@
 {% block scripts %}
 <script>
 const CATS = {{ cats|tojson }};
+function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 const CAT_ORDER = ["cpu","gpu","memory","storage","psu","motherboard","case","cooler"];
 function getBuilds(){ return JSON.parse(localStorage.getItem("saved_builds")||"[]"); }
 function saveBuilds(b){ localStorage.setItem("saved_builds", JSON.stringify(b)); }
@@ -21,10 +22,10 @@ async function render(){
   for (let i=0;i<builds.length;i++){
     const b = builds[i];
     html += `<div class="col-md-6"><div class="card p-3 h-100">
-      <h5>${b.name}</h5>
+      <h5>${esc(b.name)}</h5>
       <div class="muted small">${b.savedAt||""}</div>
       <div class="muted small mt-1">Total: ${CURRENCY}${(b.total||0).toFixed(2)}</div>
-      <ul class="small mt-2 mb-2">${CAT_ORDER.filter(c=>b.selections[c]).map(c=>`<li>${CATS[c].title}: ${b.selections[c]}</li>`).join("")}</ul>
+      <ul class="small mt-2 mb-2">${CAT_ORDER.filter(c=>b.selections[c]).map(c=>`<li>${CATS[c].title}: ${esc(b.selections[c])}</li>`).join("")}</ul>
       <div>
         <a class="btn btn-sm btn-primary" href="/build?load=${encodeURIComponent(b.name)}">Load</a>
         <button class="btn btn-sm btn-outline-danger ms-2" onclick="delBuild(${i})">Delete</button>

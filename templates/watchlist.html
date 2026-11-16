@@ -14,6 +14,7 @@
 {% block scripts %}
 <script>
 const cats = {{ cats|tojson }};
+function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 // request notification permission
 if ("Notification" in window && Notification.permission === "default") {
   Notification.requestPermission();
@@ -42,7 +43,7 @@ async function render(){
     if (alert) notify("Price alert: "+w.name, "Now "+CURRENCY+price+" (target "+CURRENCY+w.threshold+")");
     const changeStr = change===null||change===undefined ? "-" : (change>0?"+":"")+change+"%";
     return `<tr class="${alert}">
-      <td class="small">${w.name}</td>
+      <td class="small">${esc(w.name)}</td>
       <td>${cats[w.cat].title}</td>
       <td>${price!==null? CURRENCY+price : "-"}</td>
       <td><input type="number" step="0.01" class="form-control form-control-sm" style="width:90px" value="${w.threshold||""}" onchange="setThreshold('${w.cat}','${encodeURIComponent(w.name)}',this.value)"></td>

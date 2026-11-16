@@ -48,7 +48,8 @@ async function loadCat(cat){
   cache[cat] = j.rows;
   return j.rows;
 }
-function fmt(v){ if(v===null||v===undefined) return ""; if(typeof v==="number") return Math.round(v*100)/100; return v; }
+function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function fmt(v){ if(v===null||v===undefined) return ""; if(typeof v==="number") return Math.round(v*100)/100; return esc(v); }
 async function renderForm(){
   const container = document.getElementById("buildForm");
   container.innerHTML = "";
@@ -60,7 +61,7 @@ async function renderForm(){
     col.innerHTML = `<label class="form-label small">${label}</label>
       <select class="form-select form-select-sm" id="sel_${cat}" onchange="updateTotal()">
         <option value="">-- none --</option>
-        ${rows.map(r=>`<option value="${r.name}" data-price="${r.price||0}">${r.name} — ${CURRENCY}${fmt(r.price)}</option>`).join("")}
+        ${rows.map(r=>`<option value="${esc(r.name)}" data-price="${r.price||0}">${esc(r.name)} — ${CURRENCY}${fmt(r.price)}</option>`).join("")}
       </select>`;
     container.appendChild(col);
   }
@@ -137,8 +138,8 @@ async function checkCompat(){
     else if (psu.wattage) issues.push("PSU "+psu.wattage+"W may be insufficient for est. load "+load+"W.");
   }
   let html = "";
-  if (issues.length) html += "<div class='text-danger'><ul>"+issues.map(i=>"<li>"+i+"</li>").join("")+"</ul></div>";
-  if (ok.length) html += "<div class='text-success'><ul>"+ok.map(i=>"<li>"+i+"</li>").join("")+"</ul></div>";
+  if (issues.length) html += "<div class='text-danger'><ul>"+issues.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul></div>";
+  if (ok.length) html += "<div class='text-success'><ul>"+ok.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul></div>";
   if (!cpu && !mb && !ram && !psu) html = "Select parts to check.";
   document.getElementById("compatResult").innerHTML = html;
 }

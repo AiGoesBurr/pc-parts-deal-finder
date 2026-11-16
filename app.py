@@ -207,8 +207,12 @@ def api_meta(cat):
             meta[col] = vals
     return jsonify(meta)
 
-@app.route("/refresh")
+@app.route("/refresh", methods=["POST"])
 def refresh():
+    token = request.form.get("token") or request.headers.get("X-Refresh-Token")
+    expected = os.environ.get("REFRESH_TOKEN")
+    if expected and token != expected:
+        return "forbidden", 403
     get_data(force=True, region=_region())
     return redirect(request.referrer or url_for("index"))
 
@@ -345,13 +349,16 @@ def _fetch_image_url(q, link=None):
     if len(toks) > 1:
         queries.append(" ".join(toks[:2]))
     # 1. Slickdeals deal page og:image
-    if link and "slickdeals.net" in link:
+    if link:
         try:
-            import requests
-            r = requests.get(link, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-            m = re.search(r'<meta property="og:image" content="([^"]+)"', r.text)
-            if m:
-                url = m.group(1)
+            from urllib.parse import urlparse
+            host = urlparse(link).hostname or ""
+            if host == "slickdeals.net" or host.endswith(".slickdeals.net"):
+                import requests
+                r = requests.get(link, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
+                m = re.search(r'<meta property="og:image" content="([^"]+)"', r.text)
+                if m:
+                    url = m.group(1)
         except Exception:
             url = None
     # 3. Manufacturer-domain Bing image
