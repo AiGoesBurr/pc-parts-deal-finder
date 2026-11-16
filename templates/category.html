@@ -142,7 +142,10 @@ function render(){
   const start = page*PAGE_SIZE;
   const slice = allRows.slice(start, start+PAGE_SIZE);
   tbody.innerHTML = slice.map(r => "<tr>" + cols.map(c=> {
-    if (c==="img") return `<td><img src="/api/image?q=${encodeURIComponent(r.name)}" loading="lazy" style="width:48px;height:48px;object-fit:contain;background:#0f172a;border-radius:4px" onerror="this.style.display='none'"></td>`;
+    if (c==="img") {
+      const linkParam = r.link || r.source_url ? "&link="+encodeURIComponent(r.link||r.source_url) : "";
+      return `<td><img src="/api/image?q=${encodeURIComponent(r.name)}${linkParam}" loading="lazy" style="width:48px;height:48px;object-fit:contain;background:#0f172a;border-radius:4px" onerror="this.style.display='none'"></td>`;
+    }
     if (c==="sel") return `<td><input type="checkbox" class="rowSel" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
     if (c==="buy") {
       if (CAT === "prebuilt") return `<td><a href="${r.link||r.source_url}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">View deal</a></td>`;

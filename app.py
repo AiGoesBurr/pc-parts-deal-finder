@@ -238,19 +238,44 @@ def compare():
         cat = "cpu"
     return render_template("compare.html", cat=cat, meta=CATS[cat], cats=CATS)
 
-def _fetch_image_url(q):
-    if q in _image_cache:
-        return _image_cache[q]
+def _fetch_image_url(q, link=None):
+    cache_key = q + "|" + (link or "")
+    if cache_key in _image_cache:
+        return _image_cache[cache_key]
     url = None
-    try:
-        import requests
-        r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(q), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-        imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
-        if imgs:
-            url = imgs[0]
-    except Exception:
-        url = None
-    _image_cache[q] = url
+    # 1. If a Slickdeals deal link is provided, scrape its og:image
+    if link and "slickdeals.net" in link:
+        try:
+            import requests
+            r = requests.get(link, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
+            m = re.search(r'<meta property="og:image" content="([^"]+)"', r.text)
+            if m:
+                url = m.group(1)
+        except Exception:
+            url = None
+    # 2. Try Amazon search for a product image
+    if not url:
+        try:
+            import cloudscraper
+            s = cloudscraper.create_scraper()
+            r = s.get("https://www.amazon.com/s?k=" + urllib.request.quote(q), timeout=20)
+            imgs = re.findall(r'https://m\.media-amazon\.com/images/I/[A-Za-z0-9\._-]+\.jpg', r.text)
+            imgs = [i for i in imgs if not any(w in i.lower() for w in ["positive", "mixed", "critical", "stars"])]
+            if imgs:
+                url = imgs[0]
+        except Exception:
+            url = None
+    # 3. Fallback to Bing image search
+    if not url:
+        try:
+            import requests
+            r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(q), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
+            imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
+            if imgs:
+                url = imgs[0]
+        except Exception:
+            url = None
+    _image_cache[cache_key] = url
     try:
         os.makedirs(os.path.dirname(IMAGE_CACHE_PATH), exist_ok=True)
         _json.dump(_image_cache, open(IMAGE_CACHE_PATH, "w", encoding="utf-8"))
@@ -261,9 +286,10 @@ def _fetch_image_url(q):
 @app.route("/api/image")
 def api_image():
     q = request.args.get("q", "").strip()
+    link = request.args.get("link", "").strip() or None
     if not q:
         return ("", 204)
-    url = _fetch_image_url(q)
+    url = _fetch_image_url(q, link)
     if not url:
         return ("", 204)
     from flask import redirect
