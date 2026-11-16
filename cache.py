@@ -189,6 +189,7 @@ def _do_scrape(region="us"):
                 if c.get("tdp") is None:
                     c["tdp"] = tdp_map.get(nm) or tdp_map.get(tk)
         except Exception as e:
+            logger.warning("CPU core merge failed: %s", e)
             payload["cpu_core_error"] = str(e)
         # merge cores/threads/socket/tdp from TechPowerUp CPU specs
         try:
@@ -223,10 +224,12 @@ def _do_scrape(region="us"):
                 if c.get("tdp") is None and it.get("tdp") is not None:
                     c["tdp"] = it.get("tdp")
         except Exception as e:
+            logger.warning("TechPowerUp merge failed: %s", e)
             payload["techpowerup_error"] = str(e)
         try:
             payload["gpus"] = scrape_gpus()
         except Exception as e:
+            logger.warning("GPU scrape failed: %s", e)
             payload["gpus"] = []
             payload["gpu_error"] = str(e)
         # merge vram/length from PCPartPicker where matched (by chipset)
@@ -248,16 +251,19 @@ def _do_scrape(region="us"):
                     if g["length"] is None:
                         g["length"] = sp.get("length")
         except Exception as e:
+            logger.warning("GPU spec merge failed: %s", e)
             payload["gpu_spec_error"] = str(e)
         try:
             parts = scrape_parts(region)
             payload.update(parts)
         except Exception as e:
+            logger.warning("PCPartPicker scrape failed: %s", e)
             payload["parts_error"] = str(e)
         try:
             from scrapers.prebuilt import scrape_prebuilts
             payload["prebuilts"] = scrape_prebuilts()
         except Exception as e:
+            logger.warning("Prebuilt scrape failed: %s", e)
             payload["prebuilts"] = []
             payload["prebuilt_error"] = str(e)
         for k in DATA_KEYS:
@@ -330,19 +336,16 @@ def _do_scrape(region="us"):
         _scrape_thread = None
 
 def get_data(force=False, region="us"):
+    """Serve stored data; refresh on a schedule (/api/scrape), not on every page view."""
     global _scrape_thread
     region = _valid_region(region)
     cache = load_cache(region)
     if (not force) and cache and not is_stale(cache):
         return cache
-    # Serve stale cache immediately; only scrape if forced or no cache at all
     if cache is not None and not force:
-        with _scrape_lock:
-            if _scrape_thread is None or not _scrape_thread.is_alive():
-                _scrape_thread = threading.Thread(target=_do_scrape, args=(region,), daemon=True)
-                _scrape_thread.start()
+        # Stale but usable: show it while the scheduled job refreshes in the background.
         return cache
-    # No cache or forced: trigger scrape (background if possible)
+    # No cache yet, or an explicit refresh: start a background scrape.
     with _scrape_lock:
         if _scrape_thread is None or not _scrape_thread.is_alive():
             _scrape_thread = threading.Thread(target=_do_scrape, args=(region,), daemon=True)

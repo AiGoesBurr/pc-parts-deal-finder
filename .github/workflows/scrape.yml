@@ -9,4 +9,8 @@ jobs:
     steps:
       - name: Trigger scrape
         run: |
-          curl -fsS -X POST -H "X-Scrape-Token: ${{ secrets.SCRAPE_TOKEN }}" https://pc-parts-an-deals.onrender.com/api/scrape || true
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 \
+            -X POST -H "X-Scrape-Token: ${{ secrets.SCRAPE_TOKEN }}" \
+            https://pc-parts-an-deals.onrender.com/api/scrape)
+          echo "HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then echo "Scrape trigger failed"; fi

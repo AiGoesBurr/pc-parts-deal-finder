@@ -29,7 +29,8 @@ def inject_region():
     sym = "$"
     if cache:
         sym = cache.get("_currency_symbol", "$")
-    return {"region": reg, "currency_symbol": sym}
+    return {"region": reg, "currency_symbol": sym,
+            "is_local": has_request_context() and request.remote_addr in ("127.0.0.1", "::1", "localhost")}
 
 CATS = {
     "cpu": {"key": "cpus", "title": "CPUs", "value_col": "value", "value_label": "CPU Value (Mark/$)"},
@@ -208,20 +209,24 @@ def api_meta(cat):
             meta[col] = vals
     return jsonify(meta)
 
+def _authorized(request):
+    """Fail closed: require the configured token, allowing only local requests when none is set."""
+    expected = os.environ.get("SCRAPE_TOKEN")
+    if not expected:
+        return request.remote_addr in ("127.0.0.1", "::1", "localhost")
+    token = request.headers.get("X-Scrape-Token") or request.form.get("token")
+    return token == expected
+
 @app.route("/api/scrape", methods=["POST"])
 def api_scrape():
-    expected = os.environ.get("SCRAPE_TOKEN")
-    token = request.headers.get("X-Scrape-Token") or request.form.get("token")
-    if expected and token != expected:
+    if not _authorized(request):
         return "forbidden", 403
     get_data(force=True, region=_region())
     return jsonify({"started": True})
 
 @app.route("/refresh", methods=["POST"])
 def refresh():
-    token = request.form.get("token") or request.headers.get("X-Refresh-Token")
-    expected = os.environ.get("REFRESH_TOKEN")
-    if expected and token != expected:
+    if not _authorized(request):
         return "forbidden", 403
     get_data(force=True, region=_region())
     return redirect(request.referrer or url_for("index"))
@@ -294,15 +299,21 @@ def fetch_deals(sort="newest"):
                 continue
             seen.add(link)
             deals.append({"title": title, "link": link, "desc": desc, "pubDate": pub, "price": _parse_price(title)})
-    # sort
+    # sort (parse dates so weekday names don't scramble the order)
+    from email.utils import parsedate_to_datetime
+    def when(d):
+        try:
+            return parsedate_to_datetime(d.get("pubDate") or "")
+        except Exception:
+            return None
     if sort == "oldest":
-        deals.sort(key=lambda d: d.get("pubDate") or "", reverse=False)
+        deals.sort(key=lambda d: (when(d) is None, when(d)))
     elif sort == "price_asc":
         deals.sort(key=lambda d: (d.get("price") is None, d.get("price") or 0))
     elif sort == "price_desc":
         deals.sort(key=lambda d: (d.get("price") is None, -(d.get("price") or 0)))
     else:  # newest
-        deals.sort(key=lambda d: d.get("pubDate") or "", reverse=True)
+        deals.sort(key=lambda d: (when(d) is None, when(d)), reverse=True)
     return deals[:40]
 
 @app.route("/deals")

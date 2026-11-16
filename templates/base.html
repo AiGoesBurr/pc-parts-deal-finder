@@ -100,11 +100,13 @@
         <li class="nav-item"><a class="nav-link" href="/sources">Sources</a></li>
         <li class="nav-item"><a class="nav-link" href="/install">Install</a></li>
         <li class="nav-item"><button class="btn btn-sm btn-outline-light ms-2" id="themeToggle" onclick="toggleTheme()">Light</button></li>
+        {% if is_local %}
         <li class="nav-item">
           <form method="post" action="/refresh" class="d-inline">
             <button class="btn btn-sm btn-primary ms-2" type="submit">Refresh data</button>
           </form>
         </li>
+        {% endif %}
       </ul>
     </div>
   </div>

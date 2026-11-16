@@ -17,8 +17,8 @@ run.err
 # Temp
 *.tmp
 
-# Local test scripts
-test_*.py
+# Local test scripts (root level only)
+/test_*.py
 
 # Build output
 build/

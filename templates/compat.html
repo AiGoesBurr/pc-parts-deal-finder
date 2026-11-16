@@ -17,13 +17,14 @@
 <script>
 const cache = {};
 async function loadCat(cat){ if(cache[cat]) return cache[cat]; const r=await fetch("/api/data/"+cat+"?sort=price&order=asc&limit=100000"); const j=await r.json(); cache[cat]=j.rows; return j.rows; }
-function opt(rows, placeholder){ return `<option value="">${placeholder}</option>` + rows.map(r=>`<option value="${r.name}">${r.name}</option>`).join(""); }
+function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function opt(rows, placeholder){ return `<option value="">${esc(placeholder)}</option>` + rows.map(r=>`<option value="${esc(r.name)}">${esc(r.name)}</option>`).join(""); }
 async function init(){
   const cpu=await loadCat("cpu"), mb=await loadCat("motherboard"), ram=await loadCat("memory"), gpu=await loadCat("gpu"), psu=await loadCat("psu");
   document.getElementById("sel_cpu").innerHTML = opt(cpu, "-- CPU --");
   document.getElementById("sel_mb").innerHTML = opt(mb, "-- Motherboard --");
   document.getElementById("sel_ram").innerHTML = opt(ram, "-- RAM --");
-  document.getElementById("sel_gpu").innerHTML = `<option value="">-- none --</option>` + gpu.map(r=>`<option value="${r.name}">${r.name}</option>`).join("");
+  document.getElementById("sel_gpu").innerHTML = `<option value="">-- none --</option>` + gpu.map(r=>`<option value="${esc(r.name)}">${esc(r.name)}</option>`).join("");
   document.getElementById("sel_psu").innerHTML = opt(psu, "-- PSU --");
 }
 function find(cat,name){ return (cache[cat]||[]).find(r=>r.name===name); }
@@ -35,9 +36,12 @@ function check(){
   const psu=find("psu", document.getElementById("sel_psu").value);
   const issues=[];
   const ok=[];
+  function norm(s){ return s ? String(s).replace(/^Socket\s+/i,"").trim() : null; }
+  const cs = norm(cpu && cpu.socket), ms = norm(mb && mb.socket);
   if (cpu && mb){
-    if (cpu.socket && mb.socket && cpu.socket === mb.socket) ok.push("CPU socket matches motherboard ("+cpu.socket+").");
-    else issues.push("CPU socket ("+(cpu.socket||"?")+") does not match motherboard socket ("+(mb.socket||"?")+").");
+    if (cs && ms && cs===ms) ok.push("CPU socket matches motherboard ("+cs+").");
+    else if (cs && ms) issues.push("CPU socket ("+cs+") does not match motherboard ("+ms+").");
+    else ok.push("Socket could not be verified: CPU "+(cs||"unknown")+", motherboard "+(ms||"unknown")+". Check manually.");
   }
   if (ram && mb){
     if (ram.module_type && mb.ram_slots && (mb.max_ram_gb||0) >= (ram.capacity_gb||0)) ok.push("RAM fits motherboard capacity.");
@@ -52,8 +56,8 @@ function check(){
     else if (psu.wattage) issues.push("PSU "+psu.wattage+"W may be insufficient for estimated load "+load+"W.");
   }
   let html = "";
-  if (issues.length) html += "<div class='alert alert-danger'><ul>"+issues.map(i=>"<li>"+i+"</li>").join("")+"</ul></div>";
-  if (ok.length) html += "<div class='alert alert-success'><ul>"+ok.map(i=>"<li>"+i+"</li>").join("")+"</ul></div>";
+  if (issues.length) html += "<div class='alert alert-danger'><ul>"+issues.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul></div>";
+  if (ok.length) html += "<div class='alert alert-success'><ul>"+ok.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul></div>";
   if (!cpu && !mb && !ram && !psu) html = "<p class='muted'>Select parts to check.</p>";
   document.getElementById("result").innerHTML = html;
 }

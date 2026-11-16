@@ -107,12 +107,17 @@
 {% endblock %}
 {% block scripts %}
 <script>
+let sawScraping = false;
 async function poll(){
   try {
     const r = await fetch("/api/status");
     const j = await r.json();
-    if (j.scraping) { document.getElementById("loadingBanner").style.display = "block"; setTimeout(poll, 5000); }
-    else { document.getElementById("loadingBanner").style.display = "none"; if ({{ info.counts.get('cpus',0) }} === 0) location.reload(); }
+    if (j.scraping) { sawScraping = true; document.getElementById("loadingBanner").style.display = "block"; setTimeout(poll, 5000); }
+    else {
+      document.getElementById("loadingBanner").style.display = "none";
+      // Only reload once an actual scrape has finished; otherwise we'd loop forever.
+      if (sawScraping && {{ info.counts.get('cpus',0) }} === 0) location.reload();
+    }
   } catch(e){ setTimeout(poll, 5000); }
 }
 poll();
