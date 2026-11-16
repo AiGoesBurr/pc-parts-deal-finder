@@ -62,8 +62,10 @@ def scrape_parts(region="us"):
     except RuntimeError:
         asyncio.set_event_loop(asyncio.new_event_loop())
     api = API(region)
-    data = api.retrieve("memory", "internal-hard-drive", "power-supply", "motherboard", "case", "cpu-cooler")
-    result = {"memory": [], "storage": [], "psu": [], "motherboard": [], "case": [], "cooler": []}
+    data = api.retrieve("memory", "internal-hard-drive", "power-supply", "motherboard", "case", "cpu-cooler",
+                        "monitor", "keyboard", "mouse", "headphones")
+    result = {"memory": [], "storage": [], "psu": [], "motherboard": [], "case": [], "cooler": [],
+              "monitor": [], "keyboard": [], "mouse": [], "headphones": []}
 
     for p in data.get("memory", []):
         d = _base(p, "memory")
@@ -167,6 +169,71 @@ def scrape_parts(region="us"):
         else:
             d["value"] = None
         result["cooler"].append(d)
+
+    for p in data.get("monitor", []):
+        d = _base(p, "monitor")
+        res = getattr(p, "resolution", None)
+        d.update({
+            "size": getattr(p, "size", None),
+            "resolution": f"{res.width}x{res.height}" if res else None,
+            "refresh_rate": getattr(p, "refresh_rate", None),
+            "response_time": getattr(p, "response_time", None),
+            "panel_type": getattr(p, "panel_type", None),
+            "aspect_ratio": getattr(p, "aspect_ratio", None),
+        })
+        if d["price"]:
+            d["value"] = round(1.0 / d["price"], 4)
+        else:
+            d["value"] = None
+        result["monitor"].append(d)
+
+    for p in data.get("keyboard", []):
+        d = _base(p, "keyboard")
+        d.update({
+            "style": getattr(p, "style", None),
+            "switches": getattr(p, "switches", None),
+            "backlight": getattr(p, "backlight", None),
+            "tenkeyless": getattr(p, "tenkeyless", None),
+            "connection": getattr(p, "connection", None),
+            "color": getattr(p, "color", None),
+        })
+        if d["price"]:
+            d["value"] = round(1.0 / d["price"], 4)
+        else:
+            d["value"] = None
+        result["keyboard"].append(d)
+
+    for p in data.get("mouse", []):
+        d = _base(p, "mouse")
+        d.update({
+            "tracking": getattr(p, "tracking", None),
+            "connection": getattr(p, "connection", None),
+            "max_dpi": getattr(p, "max_dpi", None),
+            "hand_orientation": getattr(p, "hand_orientation", None),
+            "color": getattr(p, "color", None),
+        })
+        if d["price"]:
+            d["value"] = round(1.0 / d["price"], 4)
+        else:
+            d["value"] = None
+        result["mouse"].append(d)
+
+    for p in data.get("headphones", []):
+        d = _base(p, "headphones")
+        fr = getattr(p, "frequency_response", None)
+        d.update({
+            "form_factor": getattr(p, "form_factor", None),
+            "frequency_response": f"{fr.min}-{fr.max} Hz" if fr else None,
+            "has_microphone": getattr(p, "has_microphone", None),
+            "is_wireless": getattr(p, "is_wireless", None),
+            "type": getattr(p, "type", None),
+            "color": getattr(p, "color", None),
+        })
+        if d["price"]:
+            d["value"] = round(1.0 / d["price"], 4)
+        else:
+            d["value"] = None
+        result["headphones"].append(d)
 
     return result
 

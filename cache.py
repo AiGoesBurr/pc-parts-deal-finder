@@ -63,7 +63,7 @@ def _price_map(cache):
     m = {}
     if not cache:
         return m
-    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts"):
+    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts","monitor","keyboard","mouse","headphones"):
         pm = {}
         for r in (cache.get(k) or []):
             if isinstance(r, dict) and r.get("name") and r.get("price") is not None:
@@ -220,7 +220,7 @@ def _do_scrape(region="us"):
         except Exception as e:
             payload["prebuilts"] = []
             payload["prebuilt_error"] = str(e)
-        for k in ("memory","storage","psu","motherboard","case","cooler","prebuilts"):
+        for k in ("memory","storage","psu","motherboard","case","cooler","prebuilts","monitor","keyboard","mouse","headphones"):
             payload.setdefault(k, [])
         # currency conversion for non-USD regions
         rate = _fx_rate(region)
@@ -298,7 +298,7 @@ def cache_info(cache):
     if not cache:
         return {"saved_at": None, "counts": {}}
     counts = {}
-    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts"):
+    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts","monitor","keyboard","mouse","headphones"):
         v = cache.get(k)
         counts[k] = len(v) if isinstance(v, list) else 0
     return {"saved_at": cache.get("_saved_at_iso"), "counts": counts}

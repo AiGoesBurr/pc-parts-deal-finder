@@ -150,6 +150,10 @@ const COLUMNS = {
   case: ["img","sel","name","brand","form_factor","color","price","price_change_pct","value","hist","watch","live","buy"],
   cooler: ["img","sel","name","brand","radiator_size","decibels","price","price_change_pct","value","hist","watch","live","buy"],
   prebuilt: ["img","sel","name","brand","price","price_change_pct","value","hist","watch","live","buy"],
+  monitor: ["img","sel","name","brand","size","resolution","refresh_rate","price","price_change_pct","value","hist","watch","live","buy"],
+  keyboard: ["img","sel","name","brand","style","switches","connection","price","price_change_pct","value","hist","watch","live","buy"],
+  mouse: ["img","sel","name","brand","tracking","connection","max_dpi","price","price_change_pct","value","hist","watch","live","buy"],
+  headphones: ["img","sel","name","brand","form_factor","is_wireless","price","price_change_pct","value","hist","watch","live","buy"],
 };
 
 function buySuffix(cat){
@@ -159,6 +163,10 @@ function buySuffix(cat){
   if (cat==="case") return " PC case";
   if (cat==="cooler") return " CPU cooler";
   if (cat==="motherboard") return " motherboard";
+  if (cat==="monitor") return " monitor";
+  if (cat==="keyboard") return " keyboard";
+  if (cat==="mouse") return " mouse";
+  if (cat==="headphones") return " headphones";
   if (cat==="cpu") return " CPU processor";
   if (cat==="gpu") return " graphics card";
   return "";
