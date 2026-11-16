@@ -54,6 +54,7 @@
   </div>
 </div>
 <div class="muted small mb-2" id="count"></div>
+<p class="muted small">* Prices are best-price estimates from PassMark/PCPartPicker and may be outdated. Use the Buy links for current retailer pricing.</p>
 <div class="table-responsive">
   <table class="table table-sm table-hover" id="tbl">
     <thead id="thead"></thead>
@@ -153,6 +154,7 @@ function render(){
     if (c==="sel") return `<th><input type="checkbox" id="selectAll"></th>`;
     if (c==="buy") return `<th>Buy</th>`;
     if (c==="price_change_pct") return `<th style="cursor:pointer" data-col="${c}">Δ%</th>`;
+    if (c==="price") return `<th style="cursor:pointer" data-col="${c}">Price (est.)</th>`;
     return `<th style="cursor:pointer" data-col="${c}">${c.replace(/_/g," ")}</th>`;
   }).join("") + "</tr>";
   const sa = document.getElementById("selectAll");
