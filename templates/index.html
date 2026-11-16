@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - PC Parts Deal Finder{% endblock %}
 {% block content %}
+<div id="loadingBanner" class="alert alert-info" style="display:none">Data is being scraped in the background. The page will refresh when ready.</div>
 <div class="hero mb-4 rounded">
   <div class="container">
     <h1 class="display-6">Best bang-for-your-buck PC parts</h1>
@@ -107,4 +108,17 @@
     <li><strong>Motherboard / Case / Cooler</strong>: 1 ÷ price — cheaper.</li>
   </ul>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function poll(){
+  try {
+    const r = await fetch("/api/status");
+    const j = await r.json();
+    if (j.scraping) { document.getElementById("loadingBanner").style.display = "block"; setTimeout(poll, 5000); }
+    else { document.getElementById("loadingBanner").style.display = "none"; if ({{ info.counts.get('cpus',0) }} === 0) location.reload(); }
+  } catch(e){ setTimeout(poll, 5000); }
+}
+poll();
+</script>
 {% endblock %}

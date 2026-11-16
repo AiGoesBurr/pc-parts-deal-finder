@@ -12,7 +12,7 @@ except Exception:
     _image_cache = {}
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
 
-from cache import get_data, cache_info, get_price_history
+from cache import get_data, cache_info, get_price_history, is_scraping
 
 app = Flask(__name__)
 
@@ -371,6 +371,10 @@ def _fetch_image_url(q, link=None):
         pass
     return url
 
+@app.route("/api/status")
+def api_status():
+    return jsonify({"scraping": is_scraping()})
+
 @app.route("/api/history")
 def api_history():
     cat = request.args.get("cat", "")
@@ -403,10 +407,7 @@ def search():
     return render_template("search.html", q=request.args.get("q") or "", results=results, cats=CATS)
 
 if __name__ == "__main__":
-    # warm cache
-    try:
-        get_data()
-    except Exception as e:
-        print("warm cache failed:", e)
+    # trigger background scrape (non-blocking)
+    get_data()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
