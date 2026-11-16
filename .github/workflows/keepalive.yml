@@ -8,4 +8,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping app
-        run: curl -fsS https://YOUR-RENDER-URL.onrender.com/ || true
+        run: curl -fsS https://pc-parts-an-deals.onrender.com/ || true

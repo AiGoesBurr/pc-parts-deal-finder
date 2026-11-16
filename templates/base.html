@@ -42,9 +42,14 @@
       </form>
       <ul class="navbar-nav me-auto">
         <li class="nav-item"><a class="nav-link" href="/">Dashboard</a></li>
-        {% for k, m in cats.items() %}
-        <li class="nav-item"><a class="nav-link" href="/category/{{ k }}">{{ m.title }}</a></li>
-        {% endfor %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Categories</a>
+          <ul class="dropdown-menu dropdown-menu-dark">
+            {% for k, m in cats.items() %}
+            <li><a class="dropdown-item" href="/category/{{ k }}">{{ m.title }}</a></li>
+            {% endfor %}
+          </ul>
+        </li>
       </ul>
       <ul class="navbar-nav">
         <li class="nav-item"><a class="nav-link" href="/deals">Deals</a></li>
