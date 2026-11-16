@@ -2,7 +2,7 @@ import json, os, time, threading
 from datetime import datetime
 
 REGION_CURRENCY = {"us":"USD","uk":"GBP","ca":"CAD","au":"AUD","de":"EUR","fr":"EUR","es":"EUR","it":"EUR","in":"INR","nz":"NZD","ie":"EUR","be":"EUR","se":"SEK"}
-CURRENCY_SYMBOL = {"USD":"$","GBP":"£","CAD":"C$","AUD":"A$","EUR":"€","INR":"₹","NZD":"NZ$","SEK":"kr"}
+CURRENCY_SYMBOL = {"USD":"$","GBP":chr(163),"CAD":"C$","AUD":"A$","EUR":chr(8364),"INR":chr(8377),"NZD":"NZ$","SEK":"kr"}
 
 def _cache_path(region="us"):
     return os.path.join(os.path.dirname(__file__), "data", f"cache_{region}.json")
@@ -49,7 +49,7 @@ def save_cache(payload, region="us"):
     payload["_saved_at_iso"] = datetime.now().isoformat(timespec="seconds")
     payload["_region"] = region
     with open(_cache_path(region), "w", encoding="utf-8") as f:
-        json.dump(payload, f)
+        json.dump(payload, f, ensure_ascii=False)
 
 def is_stale(cache):
     if not cache:
@@ -83,7 +83,7 @@ def _load_history():
 def _save_history(h):
     try:
         os.makedirs(os.path.dirname(HISTORY_PATH), exist_ok=True)
-        json.dump(h, open(HISTORY_PATH, "w", encoding="utf-8"))
+        json.dump(h, open(HISTORY_PATH, "w", encoding="utf-8"), ensure_ascii=False)
     except Exception:
         pass
 
