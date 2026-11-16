@@ -10,6 +10,11 @@
   <button class="btn btn-sm btn-warning ms-2" onclick="saveBuild()">Save build</button>
   <input id="buildName" class="form-control form-control-sm d-inline-block ms-2" style="width:200px" placeholder="Build name">
 </div>
+<div class="mb-3 d-flex align-items-center gap-2">
+  <label class="small mb-0">Budget $</label>
+  <input id="budget" class="form-control form-control-sm" style="width:120px" type="number" step="1" placeholder="1000">
+  <button class="btn btn-sm btn-primary" onclick="autoBuildBudget()">Auto-build within budget</button>
+</div>
 <div id="exportBox" class="card p-3 mt-3" style="display:none">
   <h6>Build parts list</h6>
   <textarea id="exportText" class="form-control" rows="10" readonly></textarea>
@@ -83,6 +88,24 @@ async function autoSuggest(){
     }
   }
   updateTotal();
+}
+async function autoBuildBudget(){
+  const budget = parseFloat(document.getElementById("budget").value);
+  if (!budget || budget <= 0){ alert("Enter a budget."); return; }
+  let remaining = budget;
+  for (const cat of CAT_ORDER){
+    const rows = await loadCat(cat);
+    // pick highest value item with price <= remaining
+    const candidates = rows.filter(r=>r.price && r.price <= remaining && r.value).sort((a,b)=> (b.value||0)-(a.value||0));
+    const pick = candidates.length ? candidates[0] : rows.filter(r=>r.price && r.price<=remaining).sort((a,b)=>a.price-b.price)[0];
+    const sel = document.getElementById("sel_"+cat);
+    if (pick && sel){
+      for (let i=0;i<sel.options.length;i++){ if (sel.options[i].value === pick.name){ sel.selectedIndex=i; break; } }
+      remaining -= (pick.price||0);
+    } else if (sel) sel.selectedIndex = 0;
+  }
+  updateTotal();
+  alert("Built within budget. Remaining: $" + remaining.toFixed(2));
 }
 function clearBuild(){
   for (const cat of CAT_ORDER){
