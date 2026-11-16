@@ -149,7 +149,9 @@ function buyLinks(name){
   const q = encodeURIComponent(name + buySuffix(CAT));
   return `<a href="https://www.amazon.com/s?k=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-primary me-1">Amazon</a>` +
          `<a href="https://www.newegg.com/p/pl?d=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-success me-1">Newegg</a>` +
-         `<a href="https://www.bhphotovideo.com/c/search?Ntt=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-info">B&H</a>`;
+         `<a href="https://www.bhphotovideo.com/c/search?Ntt=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-info me-1">B&H</a>` +
+         `<a href="https://www.bestbuy.com/site/searchpage/pcmcat159500050008?st=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-warning me-1">BestBuy</a>` +
+         `<a href="https://www.microcenter.com/search/search_results.aspx?Ntt=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-secondary">MicroCtr</a>`;
 }
 
 function fmt(v){
