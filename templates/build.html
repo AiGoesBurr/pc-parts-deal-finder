@@ -26,6 +26,7 @@
   </div>
   <p class="muted small mt-2">Open the PCPartPicker list builder and search/add each part. Prices are estimates.</p>
 </div>
+<div id="buildMsg" class="alert alert-info small" style="display:none"></div>
 <div id="buildForm" class="row g-3"></div>
 <div class="card p-3 mt-3">
   <h5>Total: <span id="curSym">{{ currency_symbol }}</span><span id="total">0.00</span></h5>
@@ -50,6 +51,7 @@ async function loadCat(cat){
 }
 function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function fmt(v){ if(v===null||v===undefined) return ""; if(typeof v==="number") return Math.round(v*100)/100; return esc(v); }
+function showMsg(m){ const e=document.getElementById("buildMsg"); e.style.display="block"; e.textContent=m; }
 async function renderForm(){
   const container = document.getElementById("buildForm");
   container.innerHTML = "";
@@ -93,7 +95,7 @@ function shareBuild(){
     if (sel && sel.value) params.set(cat, sel.value);
   }
   const url = location.origin + "/build?" + params.toString();
-  navigator.clipboard.writeText(url).then(()=>alert("Shareable link copied to clipboard.")).catch(()=>{ prompt("Copy this link:", url); });
+  navigator.clipboard.writeText(url).then(()=>showMsg("Shareable link copied to clipboard.")).catch(()=>{ showMsg("Copy this link: "+url); });
 }
 function updateTotal(){
   let total = 0;
@@ -186,7 +188,7 @@ async function autoSuggest(){
 }
 async function autoBuildBudget(){
   const budget = parseFloat(document.getElementById("budget").value);
-  if (!budget || budget <= 0){ alert("Enter a budget."); return; }
+  if (!budget || budget <= 0){ showMsg("Enter a budget."); return; }
   await applyAutoBuild(budget);
 }
 function clearBuild(){
@@ -198,7 +200,7 @@ function clearBuild(){
 }
 function saveBuild(){
   const name = document.getElementById("buildName").value.trim();
-  if (!name){ alert("Enter a build name."); return; }
+  if (!name){ showMsg("Enter a build name."); return; }
   const selections = {};
   let total = 0;
   for (const cat of CAT_ORDER){
@@ -210,7 +212,7 @@ function saveBuild(){
   const entry = {name, selections, total, savedAt: new Date().toLocaleString()};
   if (idx>=0) builds[idx]=entry; else builds.push(entry);
   localStorage.setItem("saved_builds", JSON.stringify(builds));
-  alert("Saved: "+name);
+  showMsg("Saved: "+name);
 }
 async function loadBuildByName(name){
   const builds = JSON.parse(localStorage.getItem("saved_builds")||"[]");
@@ -247,7 +249,7 @@ function copyExport(){
   const t = document.getElementById("exportText");
   t.select();
   document.execCommand("copy");
-  alert("Copied to clipboard.");
+  showMsg("Copied to clipboard.");
 }
 renderForm();
 </script>

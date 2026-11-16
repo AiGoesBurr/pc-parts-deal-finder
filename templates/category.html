@@ -256,7 +256,7 @@ function render(){
       return `<td><a href="${buyUrl}" target="_blank" rel="noopener" class="text-decoration-none">${fmt(r[c])}</a></td>`;
     }
     if (c==="sel") return `<td><input type="checkbox" class="rowSel" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
-    if (c==="hist") return `<td><button class="btn btn-sm btn-outline-info" onclick="showHistory('${encodeURIComponent(r.name)}')">H</button></td>`;
+    if (c==="hist") return `<td><button class="btn btn-sm btn-outline-info" title="Price history" aria-label="Price history" onclick="showHistory('${encodeURIComponent(r.name)}')">H</button></td>`;
   if (c==="live") return `<td><button class="btn btn-sm btn-outline-secondary" onclick="fetchLive('${encodeURIComponent(r.name)}', this)">Check</button></td>`;
   if (c==="watch") {
     const isW = isWatched(CAT, r.name);
@@ -270,8 +270,9 @@ function render(){
       const v = r[c];
       if (v === null || v === undefined) return `<td class="muted">-</td>`;
       const color = v < 0 ? "#22c55e" : (v > 0 ? "#ef4444" : "#94a3b8");
+      const arrow = v < 0 ? "↓" : (v > 0 ? "↑" : "");
       const sign = v > 0 ? "+" : "";
-      return `<td style="color:${color};font-weight:600">${sign}${fmt(v)}%</td>`;
+      return `<td style="color:${color};font-weight:600">${arrow}${sign}${fmt(v)}%</td>`;
     }
     if (c==="price" && (r[c]===null || r[c]===undefined)) return `<td class="muted">no price</td>`;
     return `<td>${fmt(r[c])}</td>`;
