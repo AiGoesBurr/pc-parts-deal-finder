@@ -170,7 +170,18 @@ def _is_pc_part(title):
         return False
     return any(k in low for k in PC_PART_KEYWORDS)
 
-def fetch_deals():
+import re as _re
+
+def _parse_price(title):
+    m = _re.search(r"\$\s*([\d,]+(?:\.\d{2})?)", title)
+    if m:
+        try:
+            return float(m.group(1).replace(",", ""))
+        except ValueError:
+            return None
+    return None
+
+def fetch_deals(sort="newest"):
     queries = ["cpu", "gpu", "ssd", "motherboard", "power supply", "cooler", "ram"]
     seen = set()
     deals = []
@@ -187,17 +198,28 @@ def fetch_deals():
             title = (it.findtext("title") or "").strip()
             link = (it.findtext("link") or "").strip()
             desc = (it.findtext("description") or "").strip()
+            pub = (it.findtext("pubDate") or "").strip()
             if not title or link in seen:
                 continue
             if not _is_pc_part(title):
                 continue
             seen.add(link)
-            deals.append({"title": title, "link": link, "desc": desc})
+            deals.append({"title": title, "link": link, "desc": desc, "pubDate": pub, "price": _parse_price(title)})
+    # sort
+    if sort == "oldest":
+        deals.sort(key=lambda d: d.get("pubDate") or "", reverse=False)
+    elif sort == "price_asc":
+        deals.sort(key=lambda d: (d.get("price") is None, d.get("price") or 0))
+    elif sort == "price_desc":
+        deals.sort(key=lambda d: (d.get("price") is None, -(d.get("price") or 0)))
+    else:  # newest
+        deals.sort(key=lambda d: d.get("pubDate") or "", reverse=True)
     return deals[:40]
 
 @app.route("/deals")
 def deals():
-    return render_template("deals.html", deals=fetch_deals(), cats=CATS)
+    sort = request.args.get("sort", "newest")
+    return render_template("deals.html", deals=fetch_deals(sort), sort=sort, cats=CATS)
 
 @app.route("/compare")
 def compare():

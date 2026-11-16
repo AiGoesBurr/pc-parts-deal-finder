@@ -2,7 +2,7 @@ import json, os, time
 from datetime import datetime
 
 CACHE_PATH = os.path.join(os.path.dirname(__file__), "data", "cache.json")
-CACHE_TTL = 1 * 3600  # 1 hour (prices change frequently)
+CACHE_TTL = 10 * 60  # 10 minutes
 
 def _ensure_dir():
     os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
