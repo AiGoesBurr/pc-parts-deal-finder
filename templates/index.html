@@ -27,70 +27,70 @@
   <div class="col-lg-6">
     <div class="card p-3">
       <h5>Top CPU value <span class="muted small">(PassMark CPU Mark / price)</span></h5>
-      <table class="table table-sm">
+      <div class="table-responsive"><div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>CPU</th><th>Mark</th><th>Price</th><th>Value</th></tr></thead>
         <tbody>
         {% for r in top_cpu %}
-        <tr><td>{{ r.name }}</td><td>{{ r.mark }}</td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
+        <tr><td><a href="/category/cpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.mark }}</td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
         {% endfor %}
         </tbody>
-      </table>
+      </table></div>
       <a href="/category/cpu" class="small">View all &rarr;</a>
     </div>
   </div>
   <div class="col-lg-6">
     <div class="card p-3">
       <h5>Top GPU value <span class="muted small">(PassMark G3D Mark / price)</span></h5>
-      <table class="table table-sm">
+      <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>GPU</th><th>Score</th><th>Price</th><th>Value</th></tr></thead>
         <tbody>
         {% for r in top_gpu %}
-        <tr><td>{{ r.name }}</td><td>{{ r.score }}</td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
+        <tr><td><a href="/category/gpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.score }}</td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
         {% endfor %}
         </tbody>
-      </table>
+      </table></div>
       <a href="/category/gpu" class="small">View all &rarr;</a>
     </div>
   </div>
   <div class="col-lg-4">
     <div class="card p-3">
       <h5>Cheapest RAM ($/GB)</h5>
-      <table class="table table-sm">
+      <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>Name</th><th>$/GB</th><th>Cap</th></tr></thead>
         <tbody>
         {% for r in top_mem %}
-        <tr><td class="small">{{ r.name }}</td><td>{{ r.price_per_gb }}</td><td>{{ r.capacity_gb }}GB</td></tr>
+        <tr><td class="small"><a href="/category/memory?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.price_per_gb }}</td><td>{{ r.capacity_gb }}GB</td></tr>
         {% endfor %}
         </tbody>
-      </table>
+      </table></div>
       <a href="/category/memory" class="small">View all &rarr;</a>
     </div>
   </div>
   <div class="col-lg-4">
     <div class="card p-3">
       <h5>Cheapest storage ($/GB)</h5>
-      <table class="table table-sm">
+      <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>Name</th><th>$/GB</th><th>Type</th></tr></thead>
         <tbody>
         {% for r in top_stor %}
-        <tr><td class="small">{{ r.name }}</td><td>{{ r.price_per_gb }}</td><td>{{ r.storage_type }}</td></tr>
+        <tr><td class="small"><a href="/category/storage?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.price_per_gb }}</td><td>{{ r.storage_type }}</td></tr>
         {% endfor %}
         </tbody>
-      </table>
+      </table></div>
       <a href="/category/storage" class="small">View all &rarr;</a>
     </div>
   </div>
   <div class="col-lg-4">
     <div class="card p-3">
       <h5>Best PSU ($/W)</h5>
-      <table class="table table-sm">
+      <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>Name</th><th>$/W</th><th>W</th></tr></thead>
         <tbody>
         {% for r in top_psu %}
-        <tr><td class="small">{{ r.name }}</td><td>{{ r.price_per_watt }}</td><td>{{ r.wattage }}</td></tr>
+        <tr><td class="small"><a href="/category/psu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.price_per_watt }}</td><td>{{ r.wattage }}</td></tr>
         {% endfor %}
         </tbody>
-      </table>
+      </table></div>
       <a href="/category/psu" class="small">View all &rarr;</a>
     </div>
   </div>
