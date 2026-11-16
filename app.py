@@ -302,6 +302,10 @@ def leaderboard():
 def savedbuilds():
     return render_template("savedbuilds.html", cats=CATS)
 
+@app.route("/buildtemplates")
+def buildtemplates():
+    return render_template("buildtemplates.html", cats=CATS)
+
 @app.route("/build")
 def build():
     return render_template("build.html", cats=CATS)

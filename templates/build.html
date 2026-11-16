@@ -63,6 +63,8 @@ async function renderForm(){
   const params = new URLSearchParams(location.search);
   const load = params.get("load");
   if (load) loadBuildByName(load);
+  const budgetParam = params.get("budget");
+  if (budgetParam){ document.getElementById("budget").value = budgetParam; autoBuildBudget(); }
   // load from shareable URL params
   let shared = false;
   for (const cat of CAT_ORDER){
