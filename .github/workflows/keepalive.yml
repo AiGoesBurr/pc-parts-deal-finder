@@ -8,4 +8,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping app
-        run: curl -fsS https://pc-parts-an-deals.onrender.com/ || true
+        run: |
+          echo "Pinging Render at $(date)"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 https://pc-parts-an-deals.onrender.com/)
+          echo "HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Ping failed or site is waking up"
+          fi
