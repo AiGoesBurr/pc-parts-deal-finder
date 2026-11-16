@@ -20,7 +20,7 @@ const CAT = "{{ cat }}";
 const SEL_KEY = "compare_"+CAT;
 const selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]"));
 const FIELDS = {
-  cpu: ["name","brand","cores","mark","rank","price","value"],
+  cpu: ["name","brand","cores","threads","mark","rank","price","value"],
   gpu: ["name","brand","score","price","value"],
   memory: ["name","brand","module_type","capacity_gb","price_per_gb","price","value"],
   storage: ["name","brand","storage_type","capacity_gb","price_per_gb","price","value"],

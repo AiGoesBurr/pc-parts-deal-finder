@@ -8,6 +8,7 @@ and ranks them by value.
 - **PassMark CPU Benchmarks** (cpubenchmark.net) - CPU Mark, price, CPU Value. Intel, AMD, Apple/ARM and other CPUs.
 - **PassMark Video Card Benchmarks** (videocardbenchmark.net) - G3D Mark, price, GPU value across all tier pages.
 - **PCPartPicker** (via the community mirror used by the `pcpartpicker` package) - Memory, storage, PSU, motherboard, case, cooler prices and specs.
+- **TechPowerUp CPU Specs** (techpowerup.com) - CPU core/thread counts.
 
 ## Run
 

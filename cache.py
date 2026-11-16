@@ -86,6 +86,38 @@ def get_data(force=False):
             c["cores"] = cores
     except Exception as e:
         payload["cpu_core_error"] = str(e)
+    # merge cores/threads from TechPowerUp CPU specs
+    try:
+        from scrapers.techpowerup import scrape_cpu_cores
+        import re
+        def _norm2(n):
+            n = (n or "").lower()
+            n = re.sub(r"@\s*[\d\.]+\s*ghz", "", n)
+            n = re.sub(r"\s+", " ", n).strip()
+            return n
+        def _token2(n):
+            toks = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", n or "")
+            cand = [t for t in toks if any(c.isdigit() for c in t)]
+            return max(cand, key=len).lower() if cand else None
+        tp_map = {}
+        for item in scrape_cpu_cores():
+            nm = _norm2(item.get("name"))
+            tp_map[nm] = item
+            t = _token2(item.get("name"))
+            if t:
+                tp_map.setdefault(t, item)
+        for c in payload.get("cpus", []):
+            if c.get("cores") is None:
+                it = tp_map.get(_norm2(c.get("name"))) or tp_map.get(_token2(c.get("name")))
+                if it:
+                    c["cores"] = it.get("cores")
+                    c["threads"] = it.get("threads")
+            if c.get("threads") is None:
+                it = tp_map.get(_norm2(c.get("name"))) or tp_map.get(_token2(c.get("name")))
+                if it:
+                    c["threads"] = it.get("threads")
+    except Exception as e:
+        payload["techpowerup_error"] = str(e)
     try:
         payload["gpus"] = scrape_gpus()
     except Exception as e:
