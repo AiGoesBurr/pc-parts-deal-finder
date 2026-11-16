@@ -180,5 +180,7 @@ def scrape_cpu_cores(region="us"):
     data = api.retrieve("cpu")
     out = []
     for p in data.get("cpu", []):
-        out.append({"name": f"{p.brand} {p.model}".strip(), "cores": getattr(p, "cores", None), "price": _money(getattr(p, "price", None))})
+        out.append({"name": f"{p.brand} {p.model}".strip(), "cores": getattr(p, "cores", None),
+                    "socket": getattr(p, "socket", None), "tdp": getattr(p, "tdp", None),
+                    "price": _money(getattr(p, "price", None))})
     return out

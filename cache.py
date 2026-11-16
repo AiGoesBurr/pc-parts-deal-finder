@@ -70,20 +70,32 @@ def get_data(force=False):
             toks = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", n or "")
             cand = [t for t in toks if any(c.isdigit() for c in t)]
             return max(cand, key=len).lower() if cand else None
+        pp_items = scrape_cpu_cores()
         core_map = {}
-        for item in scrape_cpu_cores():
+        socket_map = {}
+        tdp_map = {}
+        for item in pp_items:
             nm = _norm(item.get("name"))
             core_map[nm] = item.get("cores")
+            socket_map[nm] = item.get("socket")
+            tdp_map[nm] = item.get("tdp")
             t = _token(item.get("name"))
             if t:
                 core_map.setdefault(t, item.get("cores"))
+                socket_map.setdefault(t, item.get("socket"))
+                tdp_map.setdefault(t, item.get("tdp"))
         for c in payload.get("cpus", []):
-            if c.get("cores") is not None:
-                continue
-            cores = core_map.get(_norm(c.get("name")))
-            if cores is None:
-                cores = core_map.get(_token(c.get("name")))
-            c["cores"] = cores
+            nm = _norm(c.get("name"))
+            tk = _token(c.get("name"))
+            if c.get("cores") is None:
+                cores = core_map.get(nm)
+                if cores is None:
+                    cores = core_map.get(tk)
+                c["cores"] = cores
+            if c.get("socket") is None:
+                c["socket"] = socket_map.get(nm) or socket_map.get(tk)
+            if c.get("tdp") is None:
+                c["tdp"] = tdp_map.get(nm) or tdp_map.get(tk)
     except Exception as e:
         payload["cpu_core_error"] = str(e)
     # merge cores/threads from TechPowerUp CPU specs
@@ -107,15 +119,17 @@ def get_data(force=False):
             if t:
                 tp_map.setdefault(t, item)
         for c in payload.get("cpus", []):
-            if c.get("cores") is None:
-                it = tp_map.get(_norm2(c.get("name"))) or tp_map.get(_token2(c.get("name")))
-                if it:
-                    c["cores"] = it.get("cores")
-                    c["threads"] = it.get("threads")
-            if c.get("threads") is None:
-                it = tp_map.get(_norm2(c.get("name"))) or tp_map.get(_token2(c.get("name")))
-                if it:
-                    c["threads"] = it.get("threads")
+            it = tp_map.get(_norm2(c.get("name"))) or tp_map.get(_token2(c.get("name")))
+            if not it:
+                continue
+            if c.get("cores") is None and it.get("cores") is not None:
+                c["cores"] = it.get("cores")
+            if c.get("threads") is None and it.get("threads") is not None:
+                c["threads"] = it.get("threads")
+            if c.get("socket") is None and it.get("socket"):
+                c["socket"] = it.get("socket")
+            if c.get("tdp") is None and it.get("tdp") is not None:
+                c["tdp"] = it.get("tdp")
     except Exception as e:
         payload["techpowerup_error"] = str(e)
     try:

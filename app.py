@@ -231,6 +231,10 @@ def deals():
     sort = request.args.get("sort", "newest")
     return render_template("deals.html", deals=fetch_deals(sort), sort=sort, cats=CATS)
 
+@app.route("/compat")
+def compat():
+    return render_template("compat.html", cats=CATS)
+
 @app.route("/build")
 def build():
     return render_template("build.html", cats=CATS)

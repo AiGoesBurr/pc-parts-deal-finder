@@ -59,6 +59,8 @@ def scrape_cpus():
                 "brand": brand,
                 "cores": None,
                 "threads": None,
+                "socket": None,
+                "tdp": None,
                 "mark": mark,
                 "rank": rank,
                 "value": value,

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Compatibility Checker - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<h2>Build compatibility checker</h2>
+<p class="muted small">Select parts to validate socket, memory type, and power requirements.</p>
+<div class="row g-3">
+  <div class="col-md-6"><label class="form-label small">CPU</label><select id="sel_cpu" class="form-select form-select-sm"></select></div>
+  <div class="col-md-6"><label class="form-label small">Motherboard</label><select id="sel_mb" class="form-select form-select-sm"></select></div>
+  <div class="col-md-6"><label class="form-label small">RAM</label><select id="sel_ram" class="form-select form-select-sm"></select></div>
+  <div class="col-md-6"><label class="form-label small">GPU (optional)</label><select id="sel_gpu" class="form-select form-select-sm"></select></div>
+  <div class="col-md-6"><label class="form-label small">PSU</label><select id="sel_psu" class="form-select form-select-sm"></select></div>
+</div>
+<button class="btn btn-sm btn-primary mt-3" onclick="check()">Check compatibility</button>
+<div id="result" class="mt-3"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+const cache = {};
+async function loadCat(cat){ if(cache[cat]) return cache[cat]; const r=await fetch("/api/data/"+cat+"?sort=price&order=asc&limit=100000"); const j=await r.json(); cache[cat]=j.rows; return j.rows; }
+function opt(rows, placeholder){ return `<option value="">${placeholder}</option>` + rows.map(r=>`<option value="${r.name}">${r.name}</option>`).join(""); }
+async function init(){
+  const cpu=await loadCat("cpu"), mb=await loadCat("motherboard"), ram=await loadCat("memory"), gpu=await loadCat("gpu"), psu=await loadCat("psu");
+  document.getElementById("sel_cpu").innerHTML = opt(cpu, "-- CPU --");
+  document.getElementById("sel_mb").innerHTML = opt(mb, "-- Motherboard --");
+  document.getElementById("sel_ram").innerHTML = opt(ram, "-- RAM --");
+  document.getElementById("sel_gpu").innerHTML = `<option value="">-- none --</option>` + gpu.map(r=>`<option value="${r.name}">${r.name}</option>`).join("");
+  document.getElementById("sel_psu").innerHTML = opt(psu, "-- PSU --");
+}
+function find(cat,name){ return (cache[cat]||[]).find(r=>r.name===name); }
+function check(){
+  const cpu=find("cpu", document.getElementById("sel_cpu").value);
+  const mb=find("motherboard", document.getElementById("sel_mb").value);
+  const ram=find("memory", document.getElementById("sel_ram").value);
+  const gpu=find("gpu", document.getElementById("sel_gpu").value);
+  const psu=find("psu", document.getElementById("sel_psu").value);
+  const issues=[];
+  const ok=[];
+  if (cpu && mb){
+    if (cpu.socket && mb.socket && cpu.socket === mb.socket) ok.push("CPU socket matches motherboard ("+cpu.socket+").");
+    else issues.push("CPU socket ("+(cpu.socket||"?")+") does not match motherboard socket ("+(mb.socket||"?")+").");
+  }
+  if (ram && mb){
+    if (ram.module_type && mb.ram_slots && (mb.max_ram_gb||0) >= (ram.capacity_gb||0)) ok.push("RAM fits motherboard capacity.");
+    // type check: motherboard doesn't store ram type; check module_type present
+    ok.push("RAM type: "+ram.module_type+". Verify motherboard supports "+ram.module_type+".");
+  }
+  if (psu){
+    let load = 100;
+    if (cpu && cpu.tdp) load += cpu.tdp;
+    if (gpu && gpu.tdp) load += gpu.tdp; // gpu may not have tdp
+    if (psu.wattage && psu.wattage >= load) ok.push("PSU "+psu.wattage+"W covers estimated load "+load+"W.");
+    else if (psu.wattage) issues.push("PSU "+psu.wattage+"W may be insufficient for estimated load "+load+"W.");
+  }
+  let html = "";
+  if (issues.length) html += "<div class='alert alert-danger'><ul>"+issues.map(i=>"<li>"+i+"</li>").join("")+"</ul></div>";
+  if (ok.length) html += "<div class='alert alert-success'><ul>"+ok.map(i=>"<li>"+i+"</li>").join("")+"</ul></div>";
+  if (!cpu && !mb && !ram && !psu) html = "<p class='muted'>Select parts to check.</p>";
+  document.getElementById("result").innerHTML = html;
+}
+init();
+</script>
+{% endblock %}

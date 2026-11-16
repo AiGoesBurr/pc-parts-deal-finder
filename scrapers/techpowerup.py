@@ -25,6 +25,8 @@ def scrape_cpu_cores():
             continue
         name = cells[0]
         cores_field = cells[2]  # "8  / 16"
+        socket = cells[4] if len(cells) > 4 else None
+        tdp_field = cells[7] if len(cells) > 7 else None
         cores = None
         threads = None
         m = re.match(r"(\d+)\s*/\s*(\d+)", cores_field)
@@ -33,5 +35,10 @@ def scrape_cpu_cores():
             threads = int(m.group(2))
         elif cores_field.isdigit():
             cores = int(cores_field)
-        out.append({"name": name, "cores": cores, "threads": threads})
+        tdp = None
+        if tdp_field:
+            mm = re.search(r"(\d+)", tdp_field)
+            if mm:
+                tdp = int(mm.group(1))
+        out.append({"name": name, "cores": cores, "threads": threads, "socket": socket, "tdp": tdp})
     return out
