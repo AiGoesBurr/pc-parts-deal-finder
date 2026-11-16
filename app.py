@@ -1,4 +1,5 @@
-import csv, io, os, re
+import csv, io, os, re, logging
+logger = logging.getLogger("pcparts.app")
 import urllib.request
 import xml.etree.ElementTree as ET
 import json as _json
@@ -207,6 +208,15 @@ def api_meta(cat):
             meta[col] = vals
     return jsonify(meta)
 
+@app.route("/api/scrape", methods=["POST"])
+def api_scrape():
+    expected = os.environ.get("SCRAPE_TOKEN")
+    token = request.headers.get("X-Scrape-Token") or request.form.get("token")
+    if expected and token != expected:
+        return "forbidden", 403
+    get_data(force=True, region=_region())
+    return jsonify({"started": True})
+
 @app.route("/refresh", methods=["POST"])
 def refresh():
     token = request.form.get("token") or request.headers.get("X-Refresh-Token")
@@ -359,7 +369,8 @@ def _fetch_image_url(q, link=None):
                 m = re.search(r'<meta property="og:image" content="([^"]+)"', r.text)
                 if m:
                     url = m.group(1)
-        except Exception:
+        except Exception as e:
+            logger.debug("image fetch failed: %s", e)
             url = None
     # 3. Manufacturer-domain Bing image
     if not url:
@@ -381,7 +392,8 @@ def _fetch_image_url(q, link=None):
                     if imgs:
                         url = imgs[0]
                         break
-        except Exception:
+        except Exception as e:
+            logger.debug("image fetch failed: %s", e)
             url = None
     # 4. General Bing image search (last resort)
     if not url:
@@ -393,13 +405,15 @@ def _fetch_image_url(q, link=None):
                 if imgs:
                     url = imgs[0]
                     break
-        except Exception:
+        except Exception as e:
+            logger.debug("image fetch failed: %s", e)
             url = None
     _image_cache[cache_key] = url
     try:
         os.makedirs(os.path.dirname(IMAGE_CACHE_PATH), exist_ok=True)
         _json.dump(_image_cache, open(IMAGE_CACHE_PATH, "w", encoding="utf-8"))
-    except Exception:
+    except Exception as e:
+        logger.debug("image fetch failed: %s", e)
         pass
     return url
 

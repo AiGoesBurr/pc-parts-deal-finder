@@ -1,0 +1,12 @@
+name: Scheduled scrape
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger scrape
+        run: |
+          curl -fsS -X POST -H "X-Scrape-Token: ${{ secrets.SCRAPE_TOKEN }}" https://pc-parts-an-deals.onrender.com/api/scrape || true

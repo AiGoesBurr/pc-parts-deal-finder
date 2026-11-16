@@ -1,4 +1,5 @@
-import json, os, time, threading
+import json, os, time, threading, logging
+logger = logging.getLogger("pcparts.cache")
 from datetime import datetime
 
 REGION_CURRENCY = {"us":"USD","uk":"GBP","ca":"CAD","au":"AUD","de":"EUR","fr":"EUR","es":"EUR","it":"EUR","in":"INR","nz":"NZD","ie":"EUR","be":"EUR","se":"SEK"}
@@ -50,13 +51,21 @@ def _fx_rate(region):
 def _ensure_dir():
     os.makedirs(os.path.dirname(_cache_path()), exist_ok=True)
 
+_mem_cache = {}
 def load_cache(region="us"):
+    region = _valid_region(region)
     p = _cache_path(region)
     if not os.path.exists(p):
         return None
     try:
+        mtime = os.path.getmtime(p)
+        entry = _mem_cache.get(region)
+        if entry and entry[0] == mtime:
+            return entry[1]
         with open(p, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+        _mem_cache[region] = (mtime, data)
+        return data
     except Exception:
         return None
 
@@ -66,8 +75,13 @@ def save_cache(payload, region="us"):
     payload["_saved_at"] = time.time()
     payload["_saved_at_iso"] = datetime.now().isoformat(timespec="seconds")
     payload["_region"] = region
-    with open(_cache_path(region), "w", encoding="utf-8") as f:
+    path = _cache_path(region)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
 
 def is_stale(cache):
     if not cache:
@@ -101,8 +115,14 @@ def _load_history(region="us"):
 
 def _save_history(h, region="us"):
     try:
-        os.makedirs(os.path.dirname(_history_path(region)), exist_ok=True)
-        json.dump(h, open(_history_path(region), "w", encoding="utf-8"), ensure_ascii=False)
+        path = _history_path(region)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(h, f, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
     except Exception:
         pass
 
@@ -315,6 +335,14 @@ def get_data(force=False, region="us"):
     cache = load_cache(region)
     if (not force) and cache and not is_stale(cache):
         return cache
+    # Serve stale cache immediately; only scrape if forced or no cache at all
+    if cache is not None and not force:
+        with _scrape_lock:
+            if _scrape_thread is None or not _scrape_thread.is_alive():
+                _scrape_thread = threading.Thread(target=_do_scrape, args=(region,), daemon=True)
+                _scrape_thread.start()
+        return cache
+    # No cache or forced: trigger scrape (background if possible)
     with _scrape_lock:
         if _scrape_thread is None or not _scrape_thread.is_alive():
             _scrape_thread = threading.Thread(target=_do_scrape, args=(region,), daemon=True)
