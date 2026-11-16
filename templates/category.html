@@ -73,14 +73,14 @@ let sortKey = "value";
 let sortOrder = "desc";
 
 const COLUMNS = {
-  cpu: ["sel","name","brand","cores","mark","rank","price","value","buy"],
-  gpu: ["sel","name","brand","score","price","value","buy"],
-  memory: ["sel","name","brand","module_type","capacity_gb","price_per_gb","price","value","buy"],
-  storage: ["sel","name","brand","storage_type","capacity_gb","price_per_gb","price","value","buy"],
-  psu: ["sel","name","brand","wattage","efficiency","price_per_watt","price","value","buy"],
-  motherboard: ["sel","name","brand","socket","form_factor","max_ram_gb","price","value","buy"],
-  case: ["sel","name","brand","form_factor","color","price","value","buy"],
-  cooler: ["sel","name","brand","radiator_size","decibels","price","value","buy"],
+  cpu: ["sel","name","brand","cores","mark","rank","price","price_change_pct","value","buy"],
+  gpu: ["sel","name","brand","score","price","price_change_pct","value","buy"],
+  memory: ["sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","buy"],
+  storage: ["sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","buy"],
+  psu: ["sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","buy"],
+  motherboard: ["sel","name","brand","socket","form_factor","max_ram_gb","price","price_change_pct","value","buy"],
+  case: ["sel","name","brand","form_factor","color","price","price_change_pct","value","buy"],
+  cooler: ["sel","name","brand","radiator_size","decibels","price","price_change_pct","value","buy"],
 };
 
 function buyLinks(name){
@@ -125,7 +125,12 @@ async function loadData(){
 function render(){
   const cols = COLUMNS[CAT];
   const thead = document.getElementById("thead");
-  thead.innerHTML = "<tr>" + cols.map(c=> c==="sel" ? `<th><input type="checkbox" id="selectAll"></th>` : `<th style="cursor:pointer" data-col="${c}">${c==="buy"?"Buy":c.replace(/_/g," ")}</th>`).join("") + "</tr>";
+  thead.innerHTML = "<tr>" + cols.map(c=> {
+    if (c==="sel") return `<th><input type="checkbox" id="selectAll"></th>`;
+    if (c==="buy") return `<th>Buy</th>`;
+    if (c==="price_change_pct") return `<th style="cursor:pointer" data-col="${c}">Δ%</th>`;
+    return `<th style="cursor:pointer" data-col="${c}">${c.replace(/_/g," ")}</th>`;
+  }).join("") + "</tr>";
   const sa = document.getElementById("selectAll");
   if (sa) sa.onchange = (e) => {
     document.querySelectorAll(".rowSel").forEach(cb => { cb.checked = e.target.checked; toggleSel(cb.dataset.name, cb.checked); });
@@ -137,6 +142,13 @@ function render(){
   tbody.innerHTML = slice.map(r => "<tr>" + cols.map(c=> {
     if (c==="sel") return `<td><input type="checkbox" class="rowSel" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
     if (c==="buy") return `<td>${buyLinks(r.name)}</td>`;
+    if (c==="price_change_pct") {
+      const v = r[c];
+      if (v === null || v === undefined) return `<td class="muted">-</td>`;
+      const color = v < 0 ? "#22c55e" : (v > 0 ? "#ef4444" : "#94a3b8");
+      const sign = v > 0 ? "+" : "";
+      return `<td style="color:${color};font-weight:600">${sign}${fmt(v)}%</td>`;
+    }
     return `<td>${fmt(r[c])}</td>`;
   }).join("") + "</tr>").join("");
   document.querySelectorAll(".rowSel").forEach(cb=>{

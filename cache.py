@@ -4,6 +4,19 @@ from datetime import datetime
 CACHE_PATH = os.path.join(os.path.dirname(__file__), "data", "cache.json")
 CACHE_TTL = 10 * 60  # 10 minutes
 
+def _price_map(cache):
+    m = {}
+    if not cache:
+        return m
+    for k in ("cpus","gpus","memory","storage","psu","motherboard","case","cooler"):
+        pm = {}
+        for r in (cache.get(k) or []):
+            if isinstance(r, dict) and r.get("name") and r.get("price") is not None:
+                pm[r["name"]] = r.get("price")
+        if pm:
+            m[k] = pm
+    return m
+
 def _ensure_dir():
     os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
 
@@ -86,6 +99,21 @@ def get_data(force=False):
     # errors
     for k in ("memory","storage","psu","motherboard","case","cooler"):
         payload.setdefault(k, [])
+    # annotate price change vs previous scrape
+    old_prices = _price_map(cache) if cache else {}
+    for k, rows in payload.items():
+        if not isinstance(rows, list):
+            continue
+        prev = old_prices.get(k, {})
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            old = prev.get(r.get("name"))
+            r["prev_price"] = old
+            if old is not None and r.get("price") is not None and old:
+                r["price_change_pct"] = round((r["price"] - old) / old * 100, 2)
+            else:
+                r["price_change_pct"] = None
     save_cache(payload)
     return load_cache()
 
