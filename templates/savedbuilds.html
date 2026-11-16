@@ -23,7 +23,7 @@ async function render(){
     html += `<div class="col-md-6"><div class="card p-3 h-100">
       <h5>${b.name}</h5>
       <div class="muted small">${b.savedAt||""}</div>
-      <div class="muted small mt-1">Total: $${(b.total||0).toFixed(2)}</div>
+      <div class="muted small mt-1">Total: ${CURRENCY}${(b.total||0).toFixed(2)}</div>
       <ul class="small mt-2 mb-2">${CAT_ORDER.filter(c=>b.selections[c]).map(c=>`<li>${CATS[c].title}: ${b.selections[c]}</li>`).join("")}</ul>
       <div>
         <a class="btn btn-sm btn-primary" href="/build?load=${encodeURIComponent(b.name)}">Load</a>

@@ -31,7 +31,7 @@
         <thead><tr><th>CPU</th><th>Mark</th><th>Price</th><th>Value</th></tr></thead>
         <tbody>
         {% for r in top_cpu %}
-        <tr><td><a href="/category/cpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.mark }}</td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
+        <tr><td><a href="/category/cpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.mark }}</td><td>{{ currency_symbol }}{{ r.price }}</td><td>{{ r.value }}</td></tr>
         {% endfor %}
         </tbody>
       </table></div>
@@ -44,7 +44,7 @@
         <thead><tr><th>GPU</th><th>Score</th><th>Price</th><th>Value</th></tr></thead>
         <tbody>
         {% for r in top_gpu %}
-        <tr><td><a href="/category/gpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.score }}</td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
+        <tr><td><a href="/category/gpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.score }}</td><td>{{ currency_symbol }}{{ r.price }}</td><td>{{ r.value }}</td></tr>
         {% endfor %}
         </tbody>
       </table></div>

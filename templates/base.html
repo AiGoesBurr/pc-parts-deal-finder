@@ -52,6 +52,11 @@
     <a class="navbar-brand" href="/">PC Parts Deal Finder</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="nav">
+      <select class="form-select form-select-sm me-2" style="width:auto" onchange="location.href=location.pathname+'?region='+this.value">
+        {% for r in ['us','uk','ca','au','de','fr','es','it','in','nz','ie','be','se'] %}
+        <option value="{{ r }}" {% if region==r %}selected{% endif %}>{{ r|upper }}</option>
+        {% endfor %}
+      </select>
       <form class="d-flex me-3" action="/search" method="get">
         <input class="form-control form-control-sm me-2" type="search" name="q" placeholder="Search components..." aria-label="Search">
         <button class="btn btn-sm btn-primary" type="submit">Search</button>
@@ -86,6 +91,7 @@
 {% block content %}{% endblock %}
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>const CURRENCY = "{{ currency_symbol }}";</script>
 <script>
 function applyTheme(t){
   if (t === "light") { document.body.classList.add("light"); document.getElementById("themeToggle").textContent = "Dark"; }

@@ -10,7 +10,7 @@
     <thead><tr><th>#</th><th>Name</th><th>Price</th><th>Value</th></tr></thead>
     <tbody>
       {% for r in rows %}
-      <tr><td>{{ loop.index }}</td><td><a href="/category/{{ cat }}?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>${{ r.price }}</td><td>{{ r.value }}</td></tr>
+      <tr><td>{{ loop.index }}</td><td><a href="/category/{{ cat }}?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ currency_symbol }}{{ r.price }}</td><td>{{ r.value }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

@@ -23,7 +23,7 @@
     <div class="card p-3 h-100">
       <a href="{{ d.link }}" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">{{ d.title }}</a>
       <div class="muted small mt-1">
-        {% if d.price %}Price: ${{ d.price }}{% endif %}
+        {% if d.price %}Price: {{ currency_symbol }}{{ d.price }}{% endif %}
         {% if d.pubDate %} &middot; {{ d.pubDate }}{% endif %}
       </div>
       <p class="muted small mt-2">{{ d.desc[:220] }}</p>

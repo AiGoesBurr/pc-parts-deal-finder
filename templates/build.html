@@ -27,7 +27,7 @@
 </div>
 <div id="buildForm" class="row g-3"></div>
 <div class="card p-3 mt-3">
-  <h5>Total: $<span id="total">0.00</span></h5>
+  <h5>Total: <span id="curSym">{{ currency_symbol }}</span><span id="total">0.00</span></h5>
   <div id="breakdown" class="muted small"></div>
 </div>
 {% endblock %}
@@ -55,7 +55,7 @@ async function renderForm(){
     col.innerHTML = `<label class="form-label small">${label}</label>
       <select class="form-select form-select-sm" id="sel_${cat}" onchange="updateTotal()">
         <option value="">-- none --</option>
-        ${rows.map(r=>`<option value="${r.name}" data-price="${r.price||0}">${r.name} — $${fmt(r.price)}</option>`).join("")}
+        ${rows.map(r=>`<option value="${r.name}" data-price="${r.price||0}">${r.name} — ${CURRENCY}${fmt(r.price)}</option>`).join("")}
       </select>`;
     container.appendChild(col);
   }
@@ -95,7 +95,7 @@ function updateTotal(){
     if (!sel) continue;
     const opt = sel.options[sel.selectedIndex];
     const price = parseFloat(opt?.dataset?.price || 0);
-    if (price) { total += price; bd.push(CATS[cat].title + ": $" + price.toFixed(2)); }
+    if (price) { total += price; bd.push(CATS[cat].title + ": " + CURRENCY + price.toFixed(2)); }
   }
   document.getElementById("total").textContent = total.toFixed(2);
   document.getElementById("breakdown").innerHTML = bd.join("<br>");
@@ -129,7 +129,7 @@ async function autoBuildBudget(){
     } else if (sel) sel.selectedIndex = 0;
   }
   updateTotal();
-  alert("Built within budget. Remaining: $" + remaining.toFixed(2));
+  alert("Built within budget. Remaining: " + CURRENCY + remaining.toFixed(2));
 }
 function clearBuild(){
   for (const cat of CAT_ORDER){
@@ -178,10 +178,10 @@ function exportBuild(){
     const opt = sel.options[sel.selectedIndex];
     const price = parseFloat(opt.dataset.price||0);
     total += price;
-    lines.push(CATS[cat].title + ": " + sel.value + " — $" + price.toFixed(2));
+    lines.push(CATS[cat].title + ": " + sel.value + " — " + CURRENCY + price.toFixed(2));
   }
   lines.push("");
-  lines.push("Estimated total: $" + total.toFixed(2));
+  lines.push("Estimated total: " + CURRENCY + total.toFixed(2));
   document.getElementById("exportText").value = lines.join("\n");
   document.getElementById("exportBox").style.display = "block";
 }

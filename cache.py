@@ -1,31 +1,54 @@
 import json, os, time, threading
 from datetime import datetime
 
-CACHE_PATH = os.path.join(os.path.dirname(__file__), "data", "cache.json")
+REGION_CURRENCY = {"us":"USD","uk":"GBP","ca":"CAD","au":"AUD","de":"EUR","fr":"EUR","es":"EUR","it":"EUR","in":"INR","nz":"NZD","ie":"EUR","be":"EUR","se":"SEK"}
+CURRENCY_SYMBOL = {"USD":"$","GBP":"£","CAD":"C$","AUD":"A$","EUR":"€","INR":"₹","NZD":"NZ$","SEK":"kr"}
+
+def _cache_path(region="us"):
+    return os.path.join(os.path.dirname(__file__), "data", f"cache_{region}.json")
+
+def _fx_rate(region):
+    if region == "us":
+        return 1.0
+    cur = REGION_CURRENCY.get(region, "USD")
+    if cur == "USD":
+        return 1.0
+    try:
+        import urllib.request, json
+        url = f"https://api.exchangerate.host/latest?base=USD&symbols={cur}"
+        with urllib.request.urlopen(url, timeout=10) as r:
+            d = json.loads(r.read())
+        return float(d["rates"][cur])
+    except Exception:
+        return 1.0
+
 CACHE_TTL = 10 * 60  # 10 minutes
 
 HISTORY_PATH = os.path.join(os.path.dirname(__file__), "data", "price_history.json")
 
 _scrape_lock = threading.Lock()
 _scrape_thread = None
+_scrape_region = "us"
 
 def _ensure_dir():
-    os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(_cache_path()), exist_ok=True)
 
-def load_cache():
-    if not os.path.exists(CACHE_PATH):
+def load_cache(region="us"):
+    p = _cache_path(region)
+    if not os.path.exists(p):
         return None
     try:
-        with open(CACHE_PATH, "r", encoding="utf-8") as f:
+        with open(p, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return None
 
-def save_cache(payload):
+def save_cache(payload, region="us"):
     _ensure_dir()
     payload["_saved_at"] = time.time()
     payload["_saved_at_iso"] = datetime.now().isoformat(timespec="seconds")
-    with open(CACHE_PATH, "w", encoding="utf-8") as f:
+    payload["_region"] = region
+    with open(_cache_path(region), "w", encoding="utf-8") as f:
         json.dump(payload, f)
 
 def is_stale(cache):
@@ -73,10 +96,10 @@ def get_price_history(cat, name):
             out.append({"ts": snap.get("ts"), "price": price})
     return out
 
-def _do_scrape():
+def _do_scrape(region="us"):
     global _scrape_thread
     try:
-        cache = load_cache()
+        cache = load_cache(region)
         old_prices = _price_map(cache) if cache else {}
         from scrapers.passmark import scrape_cpus, scrape_gpus
         from scrapers.pcpp import scrape_parts
@@ -99,7 +122,7 @@ def _do_scrape():
                 toks = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", n or "")
                 cand = [t for t in toks if any(c.isdigit() for c in t)]
                 return max(cand, key=len).lower() if cand else None
-            pp_items = scrape_cpu_cores()
+            pp_items = scrape_cpu_cores(region)
             core_map = {}
             socket_map = {}
             tdp_map = {}
@@ -169,19 +192,16 @@ def _do_scrape():
         # merge vram/length from PCPartPicker where matched (by chipset)
         try:
             from scrapers.pcpp import scrape_gpu_specs
-            import re
-            def _norm(n):
-                return (n or "").lower().strip()
             spec_map = {}
-            for s in scrape_gpu_specs():
+            for s in scrape_gpu_specs(region):
                 if s.get("chipset"):
-                    spec_map[_norm(s["chipset"])] = s
+                    spec_map[s["chipset"].lower().strip()] = s
             for g in payload.get("gpus", []):
                 if not isinstance(g, dict):
                     continue
                 g.setdefault("vram_gb", None)
                 g.setdefault("length", None)
-                sp = spec_map.get(_norm(g.get("name")))
+                sp = spec_map.get((g.get("name") or "").lower().strip())
                 if sp:
                     if g["vram_gb"] is None:
                         g["vram_gb"] = sp.get("vram_gb")
@@ -190,7 +210,7 @@ def _do_scrape():
         except Exception as e:
             payload["gpu_spec_error"] = str(e)
         try:
-            parts = scrape_parts()
+            parts = scrape_parts(region)
             payload.update(parts)
         except Exception as e:
             payload["parts_error"] = str(e)
@@ -202,6 +222,22 @@ def _do_scrape():
             payload["prebuilt_error"] = str(e)
         for k in ("memory","storage","psu","motherboard","case","cooler","prebuilts"):
             payload.setdefault(k, [])
+        # currency conversion for non-USD regions
+        rate = _fx_rate(region)
+        cur = REGION_CURRENCY.get(region, "USD")
+        payload["_currency"] = cur
+        payload["_currency_symbol"] = CURRENCY_SYMBOL.get(cur, "$")
+        if rate != 1.0:
+            for k in ("cpus","gpus"):
+                for r in (payload.get(k) or []):
+                    if isinstance(r, dict) and r.get("price") is not None:
+                        r["price"] = round(r["price"] * rate, 2)
+                        if r.get("value") is not None and r.get("price"):
+                            # recompute value with converted price
+                            if k == "cpus" and r.get("mark"):
+                                r["value"] = round(r["mark"] / r["price"], 2)
+                            elif k == "gpus" and r.get("score"):
+                                r["value"] = round(r["score"] / r["price"], 2)
         # annotate price change vs previous scrape
         for k, rows in payload.items():
             if not isinstance(rows, list):
@@ -237,19 +273,21 @@ def _do_scrape():
                 _save_history(h)
         except Exception:
             pass
-        save_cache(payload)
+        save_cache(payload, region)
     finally:
-        global _scrape_thread
+        global _scrape_thread, _scrape_region
         _scrape_thread = None
+        _scrape_region = region
 
-def get_data(force=False):
-    global _scrape_thread
-    cache = load_cache()
+def get_data(force=False, region="us"):
+    global _scrape_thread, _scrape_region
+    cache = load_cache(region)
     if (not force) and cache and not is_stale(cache):
         return cache
     with _scrape_lock:
         if _scrape_thread is None or not _scrape_thread.is_alive():
-            _scrape_thread = threading.Thread(target=_do_scrape, daemon=True)
+            _scrape_region = region
+            _scrape_thread = threading.Thread(target=_do_scrape, args=(region,), daemon=True)
             _scrape_thread.start()
     return cache
 

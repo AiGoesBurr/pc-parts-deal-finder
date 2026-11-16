@@ -16,6 +16,15 @@ from cache import get_data, cache_info, get_price_history, is_scraping
 
 app = Flask(__name__)
 
+@app.context_processor
+def inject_region():
+    reg = _region() if request else "us"
+    cache = get_data(region=reg)
+    sym = "$"
+    if cache:
+        sym = cache.get("_currency_symbol", "$")
+    return {"region": reg, "currency_symbol": sym}
+
 CATS = {
     "cpu": {"key": "cpus", "title": "CPUs", "value_col": "value", "value_label": "CPU Value (Mark/$)"},
     "gpu": {"key": "gpus", "title": "GPUs", "value_col": "value", "value_label": "GPU Value (Score/$)"},
@@ -28,14 +37,17 @@ CATS = {
     "prebuilt": {"key": "prebuilts", "title": "Prebuilt PCs", "value_col": "value", "value_label": "Value (1/$)"},
 }
 
+def _region():
+    return request.args.get("region", "us")
+
 def _rows(cat):
-    cache = get_data()
+    cache = get_data(region=_region())
     key = CATS[cat]["key"]
     return cache.get(key, []) if cache else []
 
 @app.route("/")
 def index():
-    cache = get_data()
+    cache = get_data(region=_region())
     info = cache_info(cache)
     # top picks
     def top(key, n=6):
@@ -177,12 +189,12 @@ def api_meta(cat):
 
 @app.route("/refresh")
 def refresh():
-    get_data(force=True)
+    get_data(force=True, region=_region())
     return redirect(request.referrer or url_for("index"))
 
 @app.route("/sources")
 def sources():
-    info = cache_info(get_data())
+    info = cache_info(get_data(region=_region()))
     return render_template("sources.html", info=info, cats=CATS)
 
 @app.route("/export/<cat>.csv")
@@ -270,7 +282,7 @@ def watchlist():
 
 @app.route("/leaderboard")
 def leaderboard():
-    cache = get_data()
+    cache = get_data(region=_region())
     boards = {}
     if cache:
         for cat, meta in CATS.items():
@@ -476,6 +488,6 @@ def search():
 
 if __name__ == "__main__":
     # trigger background scrape (non-blocking)
-    get_data()
+    get_data(region="us")
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)

@@ -112,7 +112,7 @@ async function fetchLive(name, btn){
   try {
     const r = await fetch("/api/liveprice?q="+encodeURIComponent(name));
     const j = await r.json();
-    if (j.price) btn.textContent = "$"+Math.round(j.price*100)/100;
+    if (j.price) btn.textContent = CURRENCY+Math.round(j.price*100)/100;
     else btn.textContent = "N/A";
   } catch(e){ btn.textContent = "Err"; }
   btn.disabled = false;

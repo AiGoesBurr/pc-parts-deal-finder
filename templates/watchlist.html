@@ -39,12 +39,12 @@ async function render(){
     const price = item ? item.price : null;
     const change = item ? item.price_change_pct : null;
     const alert = (w.threshold && price !== null && price <= w.threshold) ? "table-warning" : "";
-    if (alert) notify("Price alert: "+w.name, "Now $"+price+" (target $"+w.threshold+")");
+    if (alert) notify("Price alert: "+w.name, "Now "+CURRENCY+price+" (target "+CURRENCY+w.threshold+")");
     const changeStr = change===null||change===undefined ? "-" : (change>0?"+":"")+change+"%";
     return `<tr class="${alert}">
       <td class="small">${w.name}</td>
       <td>${cats[w.cat].title}</td>
-      <td>${price!==null? "$"+price : "-"}</td>
+      <td>${price!==null? CURRENCY+price : "-"}</td>
       <td><input type="number" step="0.01" class="form-control form-control-sm" style="width:90px" value="${w.threshold||""}" onchange="setThreshold('${w.cat}','${encodeURIComponent(w.name)}',this.value)"></td>
       <td>${changeStr}</td>
       <td><button class="btn btn-sm btn-outline-danger" onclick="removeWatch('${w.cat}','${encodeURIComponent(w.name)}')">Remove</button></td>
