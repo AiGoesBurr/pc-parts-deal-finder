@@ -30,6 +30,10 @@
   <h5>Total: <span id="curSym">{{ currency_symbol }}</span><span id="total">0.00</span></h5>
   <div id="breakdown" class="muted small"></div>
 </div>
+<div class="card p-3 mt-3">
+  <h6>Compatibility</h6>
+  <div id="compatResult" class="muted small">Select parts to check.</div>
+</div>
 {% endblock %}
 {% block scripts %}
 <script>
@@ -101,6 +105,35 @@ function updateTotal(){
   }
   document.getElementById("total").textContent = total.toFixed(2);
   document.getElementById("breakdown").innerHTML = bd.join("<br>");
+  checkCompat();
+}
+async function checkCompat(){
+  const cpu = (cache.cpu||[]).find(r=>r.name===document.getElementById("sel_cpu").value);
+  const mb = (cache.motherboard||[]).find(r=>r.name===document.getElementById("sel_motherboard").value);
+  const ram = (cache.memory||[]).find(r=>r.name===document.getElementById("sel_memory").value);
+  const gpu = (cache.gpu||[]).find(r=>r.name===document.getElementById("sel_gpu").value);
+  const psu = (cache.psu||[]).find(r=>r.name===document.getElementById("sel_psu").value);
+  const issues=[], ok=[];
+  if (cpu && mb){
+    if (cpu.socket && mb.socket && cpu.socket===mb.socket) ok.push("CPU socket matches motherboard ("+cpu.socket+").");
+    else if (cpu.socket && mb.socket) issues.push("CPU socket ("+cpu.socket+") != motherboard ("+mb.socket+").");
+  }
+  if (ram && mb){
+    ok.push("RAM type: "+(ram.module_type||"?")+". Ensure motherboard supports it.");
+    if (mb.max_ram_gb && ram.capacity_gb && mb.max_ram_gb >= ram.capacity_gb) ok.push("RAM fits motherboard max capacity.");
+    else if (mb.max_ram_gb && ram.capacity_gb) issues.push("RAM capacity exceeds motherboard max.");
+  }
+  if (psu){
+    let load = 100;
+    if (cpu && cpu.tdp) load += cpu.tdp;
+    if (psu.wattage && psu.wattage >= load) ok.push("PSU "+psu.wattage+"W covers est. load "+load+"W.");
+    else if (psu.wattage) issues.push("PSU "+psu.wattage+"W may be insufficient for est. load "+load+"W.");
+  }
+  let html = "";
+  if (issues.length) html += "<div class='text-danger'><ul>"+issues.map(i=>"<li>"+i+"</li>").join("")+"</ul></div>";
+  if (ok.length) html += "<div class='text-success'><ul>"+ok.map(i=>"<li>"+i+"</li>").join("")+"</ul></div>";
+  if (!cpu && !mb && !ram && !psu) html = "Select parts to check.";
+  document.getElementById("compatResult").innerHTML = html;
 }
 async function autoSuggest(){
   for (const cat of CAT_ORDER){
