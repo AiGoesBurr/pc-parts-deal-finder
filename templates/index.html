@@ -26,8 +26,8 @@
 <div class="row g-4">
   <div class="col-lg-6">
     <div class="card p-3">
-      <h5>Top CPU value <span class="muted small">(PassMark CPU Mark / price)</span></h5>
-      <div class="table-responsive"><div class="table-responsive"><table class="table table-sm">
+      <h5>Top CPU value <span class="muted small">(PassMark CPU Mark / price)</span> <a href="/category/cpu" class="small float-end">View all &rarr;</a></h5>
+      <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>CPU</th><th>Mark</th><th>Price</th><th>Value</th></tr></thead>
         <tbody>
         {% for r in top_cpu %}
@@ -35,12 +35,11 @@
         {% endfor %}
         </tbody>
       </table></div>
-      <a href="/category/cpu" class="small">View all &rarr;</a>
     </div>
   </div>
   <div class="col-lg-6">
     <div class="card p-3">
-      <h5>Top GPU value <span class="muted small">(PassMark G3D Mark / price)</span></h5>
+      <h5>Top GPU value <span class="muted small">(PassMark G3D Mark / price)</span> <a href="/category/gpu" class="small float-end">View all &rarr;</a></h5>
       <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>GPU</th><th>Score</th><th>Price</th><th>Value</th></tr></thead>
         <tbody>
@@ -49,12 +48,11 @@
         {% endfor %}
         </tbody>
       </table></div>
-      <a href="/category/gpu" class="small">View all &rarr;</a>
     </div>
   </div>
   <div class="col-lg-4">
     <div class="card p-3">
-      <h5>Cheapest RAM ($/GB)</h5>
+      <h5>Cheapest RAM ($/GB) <a href="/category/memory" class="small float-end">View all &rarr;</a></h5>
       <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>Name</th><th>$/GB</th><th>Cap</th></tr></thead>
         <tbody>
@@ -63,12 +61,11 @@
         {% endfor %}
         </tbody>
       </table></div>
-      <a href="/category/memory" class="small">View all &rarr;</a>
     </div>
   </div>
   <div class="col-lg-4">
     <div class="card p-3">
-      <h5>Cheapest storage ($/GB)</h5>
+      <h5>Cheapest storage ($/GB) <a href="/category/storage" class="small float-end">View all &rarr;</a></h5>
       <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>Name</th><th>$/GB</th><th>Type</th></tr></thead>
         <tbody>
@@ -77,12 +74,11 @@
         {% endfor %}
         </tbody>
       </table></div>
-      <a href="/category/storage" class="small">View all &rarr;</a>
     </div>
   </div>
   <div class="col-lg-4">
     <div class="card p-3">
-      <h5>Best PSU ($/W)</h5>
+      <h5>Best PSU ($/W) <a href="/category/psu" class="small float-end">View all &rarr;</a></h5>
       <div class="table-responsive"><table class="table table-sm">
         <thead><tr><th>Name</th><th>$/W</th><th>W</th></tr></thead>
         <tbody>
@@ -91,7 +87,6 @@
         {% endfor %}
         </tbody>
       </table></div>
-      <a href="/category/psu" class="small">View all &rarr;</a>
     </div>
   </div>
 </div>
