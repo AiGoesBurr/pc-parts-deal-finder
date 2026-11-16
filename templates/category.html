@@ -105,6 +105,18 @@ function toggleWatch(cat,name,btn){
   saveWatchlist(w);
 }
 function goCompare(){ if(selected.size<2) return; window.location.href = "/compare?cat="+CAT; }
+async function fetchLive(name, btn){
+  name = decodeURIComponent(name);
+  btn.textContent = "...";
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/liveprice?q="+encodeURIComponent(name));
+    const j = await r.json();
+    if (j.price) btn.textContent = "$"+Math.round(j.price*100)/100;
+    else btn.textContent = "N/A";
+  } catch(e){ btn.textContent = "Err"; }
+  btn.disabled = false;
+}
 async function showHistory(name){
   name = decodeURIComponent(name);
   document.getElementById("histTitle").textContent = "Price history: "+name;
@@ -129,15 +141,15 @@ let sortKey = "value";
 let sortOrder = "desc";
 
 const COLUMNS = {
-  cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","hist","watch","buy"],
-  gpu: ["img","sel","name","brand","score","vram_gb","length","price","price_change_pct","value","hist","watch","buy"],
-  memory: ["img","sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","buy"],
-  storage: ["img","sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","buy"],
-  psu: ["img","sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","hist","watch","buy"],
-  motherboard: ["img","sel","name","brand","socket","form_factor","max_ram_gb","price","price_change_pct","value","hist","watch","buy"],
-  case: ["img","sel","name","brand","form_factor","color","price","price_change_pct","value","hist","watch","buy"],
-  cooler: ["img","sel","name","brand","radiator_size","decibels","price","price_change_pct","value","hist","watch","buy"],
-  prebuilt: ["img","sel","name","brand","price","price_change_pct","value","hist","watch","buy"],
+  cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","hist","watch","live","buy"],
+  gpu: ["img","sel","name","brand","score","vram_gb","length","price","price_change_pct","value","hist","watch","live","buy"],
+  memory: ["img","sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","live","buy"],
+  storage: ["img","sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","live","buy"],
+  psu: ["img","sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","hist","watch","live","buy"],
+  motherboard: ["img","sel","name","brand","socket","form_factor","max_ram_gb","price","price_change_pct","value","hist","watch","live","buy"],
+  case: ["img","sel","name","brand","form_factor","color","price","price_change_pct","value","hist","watch","live","buy"],
+  cooler: ["img","sel","name","brand","radiator_size","decibels","price","price_change_pct","value","hist","watch","live","buy"],
+  prebuilt: ["img","sel","name","brand","price","price_change_pct","value","hist","watch","live","buy"],
 };
 
 function buySuffix(cat){
@@ -208,6 +220,7 @@ function render(){
     if (c==="sel") return `<th><input type="checkbox" id="selectAll"></th>`;
     if (c==="hist") return `<th>Hist</th>`;
     if (c==="watch") return `<th>Watch</th>`;
+    if (c==="live") return `<th>Live $</th>`;
     if (c==="buy") return `<th>Buy</th>`;
     if (c==="price_change_pct") return `<th style="cursor:pointer" data-col="${c}">Δ%</th>`;
     if (c==="price") return `<th style="cursor:pointer" data-col="${c}">Price (est.)</th>`;
@@ -233,6 +246,7 @@ function render(){
     }
     if (c==="sel") return `<td><input type="checkbox" class="rowSel" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
     if (c==="hist") return `<td><button class="btn btn-sm btn-outline-info" onclick="showHistory('${encodeURIComponent(r.name)}')">H</button></td>`;
+  if (c==="live") return `<td><button class="btn btn-sm btn-outline-secondary" onclick="fetchLive('${encodeURIComponent(r.name)}', this)">Check</button></td>`;
   if (c==="watch") {
     const isW = isWatched(CAT, r.name);
     return `<td><button class="btn btn-sm ${isW?'btn-warning':'btn-outline-warning'}" onclick="toggleWatch('${CAT}','${encodeURIComponent(r.name)}',this)">${isW?'★':'☆'}</button></td>`;

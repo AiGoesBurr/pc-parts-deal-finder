@@ -423,6 +423,34 @@ def api_history():
         return jsonify({"history": []})
     return jsonify({"history": get_price_history(cat, name)})
 
+@app.route("/api/liveprice")
+def api_liveprice():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"price": None})
+    try:
+        import cloudscraper, re
+        s = cloudscraper.create_scraper()
+        # infer type
+        aq = q
+        low = q.lower()
+        if any(w in low for w in ["ryzen", "core i", "core ultra", "xeon", "threadripper", "epyc"]):
+            aq = q + " processor"
+        elif any(w in low for w in ["rtx", "gtx", "radeon", "geforce", "arc a", "arc b"]):
+            aq = q + " graphics card"
+        r = s.get("https://www.amazon.com/s?k=" + urllib.request.quote(aq), timeout=20)
+        # find the first product block price: look for "a-price" with whole+fraction
+        m = re.search(r'class="a-price"[^>]*>.*?<span class="a-offscreen">\$([\d,]+\.\d{2})</span>', r.text, re.S)
+        if m:
+            return jsonify({"price": float(m.group(1).replace(",", ""))})
+        # fallback: first price in text
+        prices = re.findall(r'\$\s*([\d,]+\.\d{2})', r.text)
+        if prices:
+            return jsonify({"price": float(prices[0].replace(",", ""))})
+    except Exception:
+        pass
+    return jsonify({"price": None})
+
 @app.route("/api/image")
 def api_image():
     q = request.args.get("q", "").strip()
