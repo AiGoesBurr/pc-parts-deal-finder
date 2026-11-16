@@ -1,6 +1,15 @@
 import csv, io, os, re
 import urllib.request
 import xml.etree.ElementTree as ET
+import json as _json
+
+IMAGE_CACHE_PATH = os.path.join(os.path.dirname(__file__), "data", "images.json")
+_image_cache = {}
+try:
+    if os.path.exists(IMAGE_CACHE_PATH):
+        _image_cache = _json.load(open(IMAGE_CACHE_PATH, encoding="utf-8"))
+except Exception:
+    _image_cache = {}
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
 
 from cache import get_data, cache_info
@@ -227,6 +236,33 @@ def compare():
     if cat not in CATS:
         cat = "cpu"
     return render_template("compare.html", cat=cat, meta=CATS[cat], cats=CATS)
+
+def _fetch_image_url(q):
+    if q in _image_cache:
+        return _image_cache[q]
+    url = None
+    try:
+        import requests
+        r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(q), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
+        imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
+        if imgs:
+            url = imgs[0]
+    except Exception:
+        url = None
+    _image_cache[q] = url
+    try:
+        os.makedirs(os.path.dirname(IMAGE_CACHE_PATH), exist_ok=True)
+        _json.dump(_image_cache, open(IMAGE_CACHE_PATH, "w", encoding="utf-8"))
+    except Exception:
+        pass
+    return url
+
+@app.route("/api/image")
+def api_image():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"url": None})
+    return jsonify({"url": _fetch_image_url(q)})
 
 @app.route("/search")
 def search():
