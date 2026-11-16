@@ -28,6 +28,9 @@
     <div class="col-md-2">
       <select id="brand" class="form-select"><option value="">All brands</option></select>
     </div>
+    <div class="col-md-2">
+      <button id="compareBtn" class="btn btn-sm btn-warning w-100" disabled onclick="goCompare()">Compare</button>
+    </div>
   </div>
   <div class="row g-2 mt-1" id="extraFilters">
     {% if cat == 'cpu' %}
@@ -60,19 +63,24 @@ const CAT = "{{ cat }}";
 const META = {{ meta|tojson }};
 let allRows = [];
 let page = 0;
+const SEL_KEY = "compare_"+CAT;
+let selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]"));
+function toggleSel(name, on){ if(on) selected.add(name); else selected.delete(name); localStorage.setItem(SEL_KEY, JSON.stringify([...selected])); }
+function updateCompareBtn(){ const b=document.getElementById("compareBtn"); if(!b) return; b.textContent = "Compare ("+selected.size+")"; b.disabled = selected.size < 2; }
+function goCompare(){ if(selected.size<2) return; window.location.href = "/compare?cat="+CAT; }
 const PAGE_SIZE = 100;
 let sortKey = "value";
 let sortOrder = "desc";
 
 const COLUMNS = {
-  cpu: ["name","brand","cores","mark","rank","price","value","buy"],
-  gpu: ["name","brand","score","price","value","buy"],
-  memory: ["name","brand","module_type","capacity_gb","price_per_gb","price","value","buy"],
-  storage: ["name","brand","storage_type","capacity_gb","price_per_gb","price","value","buy"],
-  psu: ["name","brand","wattage","efficiency","price_per_watt","price","value","buy"],
-  motherboard: ["name","brand","socket","form_factor","max_ram_gb","price","value","buy"],
-  case: ["name","brand","form_factor","color","price","value","buy"],
-  cooler: ["name","brand","radiator_size","decibels","price","value","buy"],
+  cpu: ["sel","name","brand","cores","mark","rank","price","value","buy"],
+  gpu: ["sel","name","brand","score","price","value","buy"],
+  memory: ["sel","name","brand","module_type","capacity_gb","price_per_gb","price","value","buy"],
+  storage: ["sel","name","brand","storage_type","capacity_gb","price_per_gb","price","value","buy"],
+  psu: ["sel","name","brand","wattage","efficiency","price_per_watt","price","value","buy"],
+  motherboard: ["sel","name","brand","socket","form_factor","max_ram_gb","price","value","buy"],
+  case: ["sel","name","brand","form_factor","color","price","value","buy"],
+  cooler: ["sel","name","brand","radiator_size","decibels","price","value","buy"],
 };
 
 function buyLinks(name){
@@ -117,13 +125,26 @@ async function loadData(){
 function render(){
   const cols = COLUMNS[CAT];
   const thead = document.getElementById("thead");
-  thead.innerHTML = "<tr>" + cols.map(c=>`<th style="cursor:pointer" data-col="${c}">${c==="buy"?"Buy":c.replace(/_/g," ")}</th>`).join("") + "</tr>";
+  thead.innerHTML = "<tr>" + cols.map(c=> c==="sel" ? `<th><input type="checkbox" id="selectAll"></th>` : `<th style="cursor:pointer" data-col="${c}">${c==="buy"?"Buy":c.replace(/_/g," ")}</th>`).join("") + "</tr>";
+  const sa = document.getElementById("selectAll");
+  if (sa) sa.onchange = (e) => {
+    document.querySelectorAll(".rowSel").forEach(cb => { cb.checked = e.target.checked; toggleSel(cb.dataset.name, cb.checked); });
+    updateCompareBtn();
+  };
   const tbody = document.getElementById("tbody");
   const start = page*PAGE_SIZE;
   const slice = allRows.slice(start, start+PAGE_SIZE);
-  tbody.innerHTML = slice.map(r => "<tr>" + cols.map(c=> c==="buy" ? `<td>${buyLinks(r.name)}</td>` : `<td>${fmt(r[c])}</td>`).join("") + "</tr>").join("");
+  tbody.innerHTML = slice.map(r => "<tr>" + cols.map(c=> {
+    if (c==="sel") return `<td><input type="checkbox" class="rowSel" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
+    if (c==="buy") return `<td>${buyLinks(r.name)}</td>`;
+    return `<td>${fmt(r[c])}</td>`;
+  }).join("") + "</tr>").join("");
+  document.querySelectorAll(".rowSel").forEach(cb=>{
+    cb.onchange = (e) => { toggleSel(decodeURIComponent(cb.dataset.name), cb.checked); updateCompareBtn(); };
+  });
   document.getElementById("count").textContent = allRows.length + " rows";
   document.getElementById("pageinfo").textContent = `Page ${page+1} of ${Math.max(1, Math.ceil(allRows.length/PAGE_SIZE))}`;
+  updateCompareBtn();
   // click sort
   thead.querySelectorAll("th").forEach(th=>{
     th.onclick = () => {

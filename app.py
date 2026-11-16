@@ -199,6 +199,13 @@ def fetch_deals():
 def deals():
     return render_template("deals.html", deals=fetch_deals(), cats=CATS)
 
+@app.route("/compare")
+def compare():
+    cat = request.args.get("cat", "cpu")
+    if cat not in CATS:
+        cat = "cpu"
+    return render_template("compare.html", cat=cat, meta=CATS[cat], cats=CATS)
+
 @app.route("/search")
 def search():
     q = (request.args.get("q") or "").strip().lower()
