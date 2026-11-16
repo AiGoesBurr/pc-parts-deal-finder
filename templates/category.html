@@ -34,6 +34,11 @@
     <div class="col-md-2"><input id="minCores" class="form-control" type="number" step="1" placeholder="Min cores"></div>
     <div class="col-md-2"><input id="maxCores" class="form-control" type="number" step="1" placeholder="Max cores"></div>
     {% endif %}
+    {% if cat == 'case' %}
+    <div class="col-md-3">
+      <select id="formFactor" class="form-select"><option value="">All form factors</option></select>
+    </div>
+    {% endif %}
   </div>
 </div>
 <div class="muted small mb-2" id="count"></div>
@@ -101,6 +106,8 @@ async function loadData(){
   if (maxC && maxC.value.trim()) params.set("max_cores", maxC.value.trim());
   const brand = document.getElementById("brand").value;
   if (brand) params.set("filter_brand", brand);
+  const ff = document.getElementById("formFactor");
+  if (ff && ff.value) params.set("filter_form_factor", ff.value);
   const res = await fetch("/api/data/"+CAT+"?"+params.toString());
   const j = await res.json();
   allRows = j.rows;
@@ -139,6 +146,8 @@ if (_minC) _minC.addEventListener("input", ()=>{ page=0; loadData(); });
 const _maxC = document.getElementById("maxCores");
 if (_maxC) _maxC.addEventListener("input", ()=>{ page=0; loadData(); });
 document.getElementById("brand").addEventListener("change", ()=>{ page=0; loadData(); });
+const _ff = document.getElementById("formFactor");
+if (_ff) _ff.addEventListener("change", ()=>{ page=0; loadData(); });
 document.getElementById("sort").addEventListener("change", (e)=>{ sortKey=e.target.value; page=0; loadData(); });
 document.getElementById("order").addEventListener("change", (e)=>{ sortOrder=e.target.value; page=0; loadData(); });
 document.getElementById("prev").onclick = ()=>{ if(page>0){page--; render();} };
@@ -148,6 +157,8 @@ document.getElementById("next").onclick = ()=>{ if((page+1)*PAGE_SIZE < allRows.
 fetch("/api/meta/"+CAT).then(r=>r.json()).then(j=>{
   const sel = document.getElementById("brand");
   (j.brand||[]).forEach(b=>{ const o=document.createElement("option"); o.value=b; o.textContent=b; sel.appendChild(o); });
+  const ff = document.getElementById("formFactor");
+  if (ff) (j.form_factor||[]).forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; ff.appendChild(o); });
 });
 
 loadData();
