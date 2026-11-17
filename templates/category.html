@@ -89,6 +89,7 @@
 const CAT = "{{ cat }}";
 const META = {{ meta|tojson }};
 let allRows = [];
+let totalCount = 0;
 let page = 0;
 const SEL_KEY = "compare_"+CAT;
 let selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]"));
@@ -196,7 +197,8 @@ async function loadData(){
   const params = new URLSearchParams();
   params.set("sort", sortKey);
   params.set("order", sortOrder);
-  params.set("limit", "100000");
+  params.set("limit", PAGE_SIZE);
+  params.set("offset", page * PAGE_SIZE);
   if (document.getElementById("eligibleOnly").checked) params.set("eligible", "1");
   const q = document.getElementById("q").value.trim();
   if (q) params.set("q", q);
@@ -221,6 +223,7 @@ async function loadData(){
   const res = await fetch("/api/data/"+CAT+"?"+params.toString());
   const j = await res.json();
   allRows = j.rows;
+  totalCount = j.total || allRows.length;
   render();
 }
 
@@ -281,8 +284,8 @@ function render(){
   document.querySelectorAll(".rowSel").forEach(cb=>{
     cb.onchange = (e) => { toggleSel(decodeURIComponent(cb.dataset.name), cb.checked); updateCompareBtn(); };
   });
-  document.getElementById("count").textContent = allRows.length + " rows";
-  document.getElementById("pageinfo").textContent = `Page ${page+1} of ${Math.max(1, Math.ceil(allRows.length/PAGE_SIZE))}`;
+  document.getElementById("count").textContent = totalCount + " rows";
+  document.getElementById("pageinfo").textContent = `Page ${page+1} of ${Math.max(1, Math.ceil(totalCount/PAGE_SIZE))}`;
   updateCompareBtn();
   // click sort
   thead.querySelectorAll("th").forEach(th=>{
@@ -317,8 +320,8 @@ if (_st) _st.addEventListener("change", ()=>{ page=0; loadData(); });
 document.getElementById("eligibleOnly").addEventListener("change", ()=>{ page=0; loadData(); });
 document.getElementById("sort").addEventListener("change", (e)=>{ sortKey=e.target.value; page=0; loadData(); });
 document.getElementById("order").addEventListener("change", (e)=>{ sortOrder=e.target.value; page=0; loadData(); });
-document.getElementById("prev").onclick = ()=>{ if(page>0){page--; render();} };
-document.getElementById("next").onclick = ()=>{ if((page+1)*PAGE_SIZE < allRows.length){page++; render();} };
+document.getElementById("prev").onclick = ()=>{ if(page>0){page--; loadData();} };
+document.getElementById("next").onclick = ()=>{ if((page+1)*PAGE_SIZE < totalCount){page++; loadData();} };
 
 // populate brands
 fetch("/api/meta/"+CAT).then(r=>r.json()).then(j=>{

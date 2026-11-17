@@ -107,6 +107,21 @@
 </div>
 
 <div class="card p-3 mt-4">
+  <h5>Get deal alerts by email</h5>
+  <p class="small mb-2">Weekly digest of the best PC part deals. No spam.</p>
+  <form id="subForm" class="d-flex gap-2" onsubmit="return subscribeEmail(event)">
+    <input type="email" id="subEmail" class="form-control form-control-sm" placeholder="you@example.com" required style="max-width:320px">
+    <button class="btn btn-sm btn-primary" type="submit">Subscribe</button>
+  </form>
+  <div id="subMsg" class="small mt-2 muted"></div>
+</div>
+
+<div class="card p-3 mt-4">
+  <h5>Buying guides</h5>
+  <p class="small mb-2"><a href="/guide/best-budget-gaming-pc">Best budget gaming PC build</a> &mdash; $500 and $1000 build lists with links to live prices.</p>
+</div>
+
+<div class="card p-3 mt-4">
   <h5>How "Value" is calculated</h5>
   <p class="small mb-2">Higher Value = better bang for your buck. Rows sort by Value descending by default; entries with no price get null Value and sort to the bottom. The top lists show only current-generation parts with a real price.</p>
   <ul class="small mb-0">
@@ -121,6 +136,19 @@
 {% endblock %}
 {% block scripts %}
 <script>
+async function subscribeEmail(e){
+  e.preventDefault();
+  const email = document.getElementById("subEmail").value.trim();
+  const msg = document.getElementById("subMsg");
+  msg.textContent = "Subscribing...";
+  try {
+    const r = await fetch("/api/subscribe", { method: "POST", headers: {"Content-Type":"application/x-www-form-urlencoded"}, body: "email=" + encodeURIComponent(email) });
+    const j = await r.json();
+    msg.textContent = j.message || (j.ok ? "Subscribed!" : "Try again.");
+    if (j.ok) document.getElementById("subForm").reset();
+  } catch(err){ msg.textContent = "Could not subscribe. Try again."; }
+  return false;
+}
 let sawScraping = false;
 async function poll(){
   try {

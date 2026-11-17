@@ -1,4 +1,4 @@
-import csv, io, os, logging
+import csv, gzip, io, os, logging
 logger = logging.getLogger("pcparts.app")
 import xml.etree.ElementTree as ET
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, has_request_context
@@ -9,6 +9,29 @@ from ranking import is_eligible
 from autobuild import build_within_budget
 
 app = Flask(__name__)
+
+@app.after_request
+def _gzip_response(response):
+    try:
+        accept = (request.headers.get("Accept-Encoding") or "")
+    except Exception:
+        accept = ""
+    if "gzip" not in accept.lower():
+        return response
+    if response.status_code >= 400 or response.direct_passthrough:
+        return response
+    ctype = (response.mimetype or "")
+    if not (ctype.startswith("text/") or ctype in ("application/json", "application/javascript", "image/svg+xml", "application/xml")):
+        return response
+    data = response.get_data()
+    if not data or len(data) < 500:
+        return response
+    gz = gzip.compress(data, compresslevel=6)
+    response.set_data(gz)
+    response.headers["Content-Encoding"] = "gzip"
+    response.headers["Content-Length"] = str(len(gz))
+    response.headers["Vary"] = "Accept-Encoding"
+    return response
 
 @app.context_processor
 def inject_region():
@@ -429,6 +452,55 @@ def search():
             if rows:
                 results[cat] = (meta, rows[:60])
     return render_template("search.html", q=request.args.get("q") or "", results=results, cats=CATS)
+
+@app.route("/sitemap.xml")
+def sitemap():
+    base = request.url_root.rstrip("/")
+    urls = ["/", "/deals", "/build", "/compat", "/watchlist", "/leaderboard", "/guide/best-budget-gaming-pc", "/install"]
+    for k in CATS:
+        urls.append("/category/" + k)
+    body = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        body.append("  <url><loc>%s%s</loc></url>" % (base, u))
+    body.append("</urlset>")
+    return Response("\n".join(body), mimetype="application/xml")
+
+
+@app.route("/robots.txt")
+def robots():
+    base = request.url_root.rstrip("/")
+    return Response("User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n" % base, mimetype="text/plain")
+
+
+@app.route("/guide/best-budget-gaming-pc")
+def guide_budget():
+    return render_template("guide_budget.html", cats=CATS)
+
+
+@app.route("/api/subscribe", methods=["POST"])
+def api_subscribe():
+    email = (request.form.get("email") or request.json.get("email") if request.is_json else None or "").strip().lower()
+    if not email or "@" not in email or len(email) > 200:
+        return jsonify({"ok": False, "message": "Enter a valid email."}), 400
+    path = os.path.join(os.path.dirname(__file__), "data", "subscribers.json")
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        try:
+            with open(path, encoding="utf-8") as f:
+                subs = json.load(f)
+        except (OSError, ValueError):
+            subs = []
+        if email not in subs:
+            subs.append(email)
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(subs, f)
+            os.replace(tmp, path)
+    except OSError as e:
+        logger.warning("subscribe failed: %s", e)
+        return jsonify({"ok": False, "message": "Could not save. Try again."}), 500
+    return jsonify({"ok": True, "message": "You're on the list. Thanks!"})
+
 
 if __name__ == "__main__":
     # trigger background scrape (non-blocking)
