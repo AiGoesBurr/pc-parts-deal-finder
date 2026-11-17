@@ -95,8 +95,6 @@ def _attempt(cpu, plat, budget, mult, ctx):
         return None
     picks = {"cpu": cpu, "gpu": gpu, "motherboard": board, "memory": ram,
              "psu": psu, "case": case, "storage": storage, "cooler": cooler}
-    if sum(p["price"] for p in picks.values()) > budget:
-        return None
     return picks
 
 
@@ -147,26 +145,39 @@ def _build(cache, budget):
         if candidates:
             break
     candidates.sort(key=_score, reverse=True)
-    best = None
+    under = None
     for picks in candidates[:3]:
         _upgrade(picks, ctx, budget)
         total = sum(p["price"] for p in picks.values())
         if total > budget:
             continue
-        if best is None or _score(picks) > _score(best[1]):
-            best = (total, picks)
-    if best is None:
-        return {"ok": False, "budget": budget, "warnings": DATA_NOTES,
-                "message": "No compatible build fits this budget with the current parts data. Try a higher budget."}
-    total, picks = best
+        if under is None or _score(picks) > _score(under[1]):
+            under = (total, picks)
+    if under is not None:
+        total, picks = under
+        over = False
+    else:
+        # Nothing fits under budget: return the valid build closest to the budget.
+        if not candidates:
+            return {"ok": False, "budget": budget, "warnings": DATA_NOTES,
+                    "message": "No compatible build can be made with the current parts data. Try a higher budget."}
+        best_over = min(candidates, key=lambda p: (sum(x["price"] for x in p.values()), -_score(p)))
+        total = sum(p["price"] for p in best_over.values())
+        picks = best_over
+        over = True
+    warnings = list(DATA_NOTES)
+    if over:
+        warnings = warnings + ["This is the closest build we could make; it is over your budget by "
+                               + "{:.2f}".format(total - budget) + "."]
     return {
         "ok": True,
         "budget": budget,
         "total": round(total, 2),
         "leftover": round(budget - total, 2),
+        "over_budget": over,
         "platform": cpu_socket(picks["cpu"].get("name")),
         "picks": {cat: _summary(row) for cat, row in picks.items()},
-        "warnings": DATA_NOTES,
+        "warnings": warnings,
     }
 
 

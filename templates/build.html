@@ -178,7 +178,7 @@ async function applyAutoBuild(budget){
   updateTotal();
   applyBuildNotice(
     "<strong>Platform: " + (j.platform || "unknown") + "</strong> &middot; Total " + CURRENCY + j.total.toFixed(2) +
-    " of " + CURRENCY + j.budget + " (" + CURRENCY + j.leftover.toFixed(2) + " left)." +
+    " of " + CURRENCY + j.budget + (j.leftover >= 0 ? " (" + CURRENCY + j.leftover.toFixed(2) + " left)." : " (over budget by " + CURRENCY + Math.abs(j.leftover).toFixed(2) + ").") +
     "<ul class='mb-0 mt-1'>" + j.warnings.map(w => "<li>" + w + "</li>").join("") + "</ul>"
   );
 }
