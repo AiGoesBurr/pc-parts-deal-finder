@@ -2,6 +2,7 @@ import html
 import json
 import os
 import sys
+import threading
 
 import requests
 
@@ -101,6 +102,22 @@ def test_find_photo_caches_misses_and_hits(tmp_path, monkeypatch):
     assert images.find_photo("Mystery Part 9000") is None
     assert images.find_photo("Mystery Part 9000") is None
     assert calls == ["Mystery Part 9000"]
+
+
+def test_lookup_reports_network_failures_as_unsettled(monkeypatch):
+    def down(*a, **k):
+        raise requests.ConnectionError("offline")
+    monkeypatch.setattr(images.requests, "get", down)
+    assert images._lookup("AMD Ryzen 7 7800X3D", None) == (None, False)
+
+
+def test_lookup_gives_up_when_bing_is_busy(monkeypatch):
+    monkeypatch.setattr(images, "_bing_slots", threading.BoundedSemaphore(0))
+
+    def no_fetch(*a, **k):
+        raise AssertionError("should not query Bing")
+    monkeypatch.setattr(images.requests, "get", no_fetch)
+    assert images._lookup("AMD Ryzen 7 7800X3D", None) == (None, False)
 
 
 def test_find_photo_does_not_cache_failed_lookups(tmp_path, monkeypatch):

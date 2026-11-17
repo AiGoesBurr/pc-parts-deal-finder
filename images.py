@@ -120,8 +120,7 @@ def pick_photo(name, results):
 
 def _bing_results(query):
     url = "https://www.bing.com/images/search?q=" + quote(query) + "&form=HDRSC2"
-    with _bing_slots:
-        r = requests.get(url, headers=HEADERS, timeout=12)
+    r = requests.get(url, headers=HEADERS, timeout=12)
     r.raise_for_status()
     results = []
     for m in re.finditer(r'm="(\{.*?\})"', r.text):
@@ -155,11 +154,15 @@ def _lookup(name, link):
         url = _deal_photo(link)
         if url:
             return url, True
+    if not _bing_slots.acquire(timeout=1):
+        return None, False
     try:
         results = _bing_results(name)
     except requests.RequestException as e:
         logger.info("image search failed for %s: %s", name, e)
         return None, False
+    finally:
+        _bing_slots.release()
     return pick_photo(name, results), True
 
 
