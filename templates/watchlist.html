@@ -15,6 +15,7 @@
 <script>
 const cats = {{ cats|tojson }};
 function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function jsArg(s){ return encodeURIComponent(s).replace(/'/g,"%27"); }
 // request notification permission
 if ("Notification" in window && Notification.permission === "default") {
   Notification.requestPermission();
@@ -26,7 +27,7 @@ function notify(title, body){
 }
 const watchlist = JSON.parse(localStorage.getItem("watchlist")||"[]");
 const cache = {};
-async function loadCat(cat){ if(cache[cat]) return cache[cat]; const r=await fetch("/api/data/"+cat+"?limit=100000"); const j=await r.json(); cache[cat]=j.rows; return j.rows; }
+async function loadCat(cat){ if(cache[cat]) return cache[cat]; try { const r=await fetch("/api/data/"+cat+"?limit=100000"); if(!r.ok) return []; const j=await r.json(); cache[cat]=j.rows||[]; return cache[cat]; } catch(e){ return []; } }
 async function render(){
   const tbody = document.getElementById("wbody");
   if (!watchlist.length){ document.getElementById("msg").textContent = "No starred parts yet. Star items on category pages."; return; }
@@ -44,11 +45,11 @@ async function render(){
     const changeStr = change===null||change===undefined ? "-" : (change>0?"+":"")+change+"%";
     return `<tr class="${alert}">
       <td class="small">${esc(w.name)}</td>
-      <td>${cats[w.cat].title}</td>
+      <td>${(cats[w.cat]||{}).title||w.cat}</td>
       <td>${price!==null? CURRENCY+price : "-"}</td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" style="width:90px" value="${w.threshold||""}" onchange="setThreshold('${w.cat}','${encodeURIComponent(w.name)}',this.value)"></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" style="width:90px" value="${w.threshold||""}" onchange="setThreshold('${w.cat}','${jsArg(w.name)}',this.value)"></td>
       <td>${changeStr}</td>
-      <td><button class="btn btn-sm btn-outline-danger" onclick="removeWatch('${w.cat}','${encodeURIComponent(w.name)}')">Remove</button></td>
+      <td><button class="btn btn-sm btn-outline-danger" onclick="removeWatch('${w.cat}','${jsArg(w.name)}')">Remove</button></td>
     </tr>`;
   }).join("");
 }
