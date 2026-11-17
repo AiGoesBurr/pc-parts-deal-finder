@@ -1,19 +1,10 @@
-import csv, io, os, re, logging
+import csv, io, os, logging
 logger = logging.getLogger("pcparts.app")
-import urllib.request
 import xml.etree.ElementTree as ET
-import json as _json
-
-IMAGE_CACHE_PATH = os.path.join(os.path.dirname(__file__), "data", "images.json")
-_image_cache = {}
-try:
-    if os.path.exists(IMAGE_CACHE_PATH):
-        _image_cache = _json.load(open(IMAGE_CACHE_PATH, encoding="utf-8"))
-except Exception:
-    _image_cache = {}
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, has_request_context
 
 from cache import get_data, cache_info, get_price_history, is_scraping, REGION_CURRENCY
+from images import find_photo
 from ranking import is_eligible
 from autobuild import build_within_budget
 
@@ -359,79 +350,6 @@ def compare():
         cat = "cpu"
     return render_template("compare.html", cat=cat, meta=CATS[cat], cats=CATS)
 
-def _fetch_image_url(q, link=None):
-    cache_key = q + "|" + (link or "")
-    if cache_key in _image_cache:
-        return _image_cache[cache_key]
-    url = None
-    low = q.lower()
-    toks = q.split()
-    queries = [q]
-    if len(toks) > 3:
-        queries.append(" ".join(toks[:4]))
-    if len(toks) > 2:
-        queries.append(" ".join(toks[:3]))
-    if len(toks) > 1:
-        queries.append(" ".join(toks[:2]))
-    # 1. Slickdeals deal page og:image
-    if link:
-        try:
-            from urllib.parse import urlparse
-            host = urlparse(link).hostname or ""
-            if host == "slickdeals.net" or host.endswith(".slickdeals.net"):
-                import requests
-                r = requests.get(link, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-                m = re.search(r'<meta property="og:image" content="([^"]+)"', r.text)
-                if m:
-                    url = m.group(1)
-        except Exception as e:
-            logger.debug("image fetch failed: %s", e)
-            url = None
-    # 3. Manufacturer-domain Bing image
-    if not url:
-        try:
-            import requests
-            domain = None
-            if "amd" in low or "ryzen" in low or "radeon" in low: domain = "amd.com"
-            elif "intel" in low: domain = "intel.com"
-            elif "nvidia" in low or "geforce" in low or "rtx" in low or "gtx" in low: domain = "nvidia.com"
-            elif "corsair" in low: domain = "corsair.com"
-            elif "crucial" in low: domain = "crucial.com"
-            elif "samsung" in low: domain = "samsung.com"
-            elif "seagate" in low: domain = "seagate.com"
-            elif "kingston" in low: domain = "kingston.com"
-            if domain:
-                for tryq in queries:
-                    r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote("site:" + domain + " " + tryq), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-                    imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
-                    if imgs:
-                        url = imgs[0]
-                        break
-        except Exception as e:
-            logger.debug("image fetch failed: %s", e)
-            url = None
-    # 4. General Bing image search (last resort)
-    if not url:
-        try:
-            import requests
-            for tryq in queries:
-                r = requests.get("https://www.bing.com/images/search?q=" + urllib.request.quote(tryq + " product"), headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=15)
-                imgs = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', r.text)
-                if imgs:
-                    url = imgs[0]
-                    break
-        except Exception as e:
-            logger.debug("image fetch failed: %s", e)
-            url = None
-    _image_cache[cache_key] = url
-    try:
-        os.makedirs(os.path.dirname(IMAGE_CACHE_PATH), exist_ok=True)
-        _json.dump(_image_cache, open(IMAGE_CACHE_PATH, "w", encoding="utf-8"))
-    except Exception as e:
-        logger.debug("image fetch failed: %s", e)
-        pass
-    return url
-
 @app.route("/sw.js")
 def service_worker():
     from flask import send_from_directory
@@ -453,17 +371,30 @@ def api_history():
 def api_liveprice():
     return jsonify({"price": None, "note": "Live Amazon prices need an Amazon Product Advertising API key, which isn't set up yet."})
 
+PLACEHOLDER_LABELS = {"cpu": "CPU", "gpu": "GPU", "memory": "RAM", "storage": "SSD", "psu": "PSU",
+                      "motherboard": "BOARD", "case": "CASE", "cooler": "COOLER", "prebuilt": "PC",
+                      "monitor": "MONITOR", "keyboard": "KEYS", "mouse": "MOUSE", "headphones": "AUDIO"}
+
 @app.route("/api/image")
 def api_image():
-    q = request.args.get("q", "").strip()
+    q = request.args.get("q", "").strip()[:200]
     link = request.args.get("link", "").strip() or None
+    cat = request.args.get("cat", "")
     if not q:
         return ("", 204)
-    url = _fetch_image_url(q, link)
-    if not url:
-        return ("", 204)
-    from flask import redirect
-    return redirect(url, code=302)
+    url = find_photo(q, link)
+    if url:
+        return redirect(url, code=302)
+    return redirect(url_for("api_placeholder", cat=cat), code=302)
+
+@app.route("/api/placeholder")
+def api_placeholder():
+    label = PLACEHOLDER_LABELS.get(request.args.get("cat", ""), "PART")
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">'
+           '<rect width="96" height="96" rx="8" fill="#0f172a"/>'
+           '<text x="48" y="54" text-anchor="middle" font-family="Arial,sans-serif" '
+           'font-size="15" font-weight="700" fill="#64748b">' + label + '</text></svg>')
+    return Response(svg, mimetype="image/svg+xml")
 
 @app.route("/api/autobuild")
 def api_autobuild():

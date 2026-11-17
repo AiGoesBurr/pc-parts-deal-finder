@@ -250,7 +250,7 @@ function render(){
     if (c==="img") {
       const linkParam = r.link || r.source_url ? "&link="+encodeURIComponent(r.link||r.source_url) : "";
       const buyUrl = "https://www.amazon.com/s?k=" + encodeURIComponent(r.name + buySuffix(CAT));
-      return `<td><a href="${buyUrl}" target="_blank" rel="noopener"><img src="/api/image?q=${encodeURIComponent(r.name)}${linkParam}" loading="lazy" style="width:48px;height:48px;object-fit:contain;background:#0f172a;border-radius:4px" onerror="this.style.display='none'"></a></td>`;
+      return `<td><a href="${buyUrl}" target="_blank" rel="noopener"><img src="/api/image?q=${encodeURIComponent(r.name)}&cat=${CAT}${linkParam}" alt="" loading="lazy" style="width:48px;height:48px;object-fit:contain;background:#0f172a;border-radius:4px" onerror="this.onerror=null;this.src='/api/placeholder?cat=${CAT}'"></a></td>`;
     }
     if (c==="name") {
       const buyUrl = "https://www.amazon.com/s?k=" + encodeURIComponent(r.name + buySuffix(CAT));
