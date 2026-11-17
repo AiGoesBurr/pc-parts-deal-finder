@@ -62,6 +62,16 @@ def index():
         return rows[:n]
     top_cpu = top("cpus", "cpu")
     top_gpu = top("gpus", "gpu")
+    # best by benchmark score, among current parts (price not required)
+    best_cpu = [r for r in (cache.get("cpus", []) if cache else []) if r.get("mark") is not None]
+    best_cpu.sort(key=lambda r: r.get("mark") or 0, reverse=True)
+    best_gpu = [r for r in (cache.get("gpus", []) if cache else []) if r.get("score") is not None]
+    best_gpu.sort(key=lambda r: r.get("score") or 0, reverse=True)
+    # newest deal
+    try:
+        newest_deal = (fetch_deals("newest") or [None])[0]
+    except Exception:
+        newest_deal = None
     # memory/storage/psu best by price, among current priced parts only
     mem = [r for r in (cache.get("memory", []) if cache else []) if is_eligible("memory", r) and r.get("price_per_gb")]
     mem.sort(key=lambda r: r["price_per_gb"])
@@ -70,6 +80,8 @@ def index():
     psu = [r for r in (cache.get("psu", []) if cache else []) if is_eligible("psu", r) and r.get("price_per_watt")]
     psu.sort(key=lambda r: r["price_per_watt"])
     return render_template("index.html", info=info, top_cpu=top_cpu, top_gpu=top_gpu,
+                           best_cpu=best_cpu[:5], best_gpu=best_gpu[:5],
+                           newest_deal=newest_deal,
                            top_mem=mem[:6], top_stor=stor[:6], top_psu=psu[:6], cats=CATS)
 
 @app.route("/category/<cat>")
