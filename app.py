@@ -1,7 +1,7 @@
-import csv, gzip, io, os, logging
+import csv, gzip, io, os, logging, json as _json2, threading as _threading
 logger = logging.getLogger("pcparts.app")
 import xml.etree.ElementTree as ET
-from flask import Flask, render_template, request, jsonify, Response, redirect, url_for, has_request_context
+from flask import Flask, g, render_template, request, jsonify, Response, redirect, url_for, has_request_context
 
 from cache import get_data, cache_info, get_price_history, is_scraping, REGION_CURRENCY
 from images import find_photo
@@ -9,6 +9,39 @@ from ranking import is_eligible
 from autobuild import build_within_budget
 
 app = Flask(__name__)
+
+VISITOR_FILE = os.path.join(os.path.dirname(__file__), "data", "visitors.json")
+_visitor_lock = _threading.Lock()
+
+
+def _visitor_count(increment=False):
+    with _visitor_lock:
+        try:
+            with open(VISITOR_FILE, encoding="utf-8") as f:
+                n = int(_json2.load(f).get("count", 0))
+        except (OSError, ValueError, AttributeError):
+            n = 0
+        if increment:
+            n += 1
+            try:
+                os.makedirs(os.path.dirname(VISITOR_FILE), exist_ok=True)
+                tmp = VISITOR_FILE + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    _json2.dump({"count": n}, f)
+                os.replace(tmp, VISITOR_FILE)
+            except OSError:
+                pass
+        return n
+
+@app.after_request
+def _set_visitor_cookie(response):
+    try:
+        if getattr(g, "_set_vcount", False):
+            response.set_cookie("vcount", "1", max_age=30*86400, samesite="Lax")
+    except Exception:
+        pass
+    return response
+
 
 @app.after_request
 def _gzip_response(response):
@@ -43,8 +76,12 @@ def inject_region():
     sym = "$"
     if cache:
         sym = cache.get("_currency_symbol", "$")
+    inc = not bool(request.cookies.get("vcount"))
+    if inc and has_request_context():
+        g._set_vcount = True
     return {"region": reg, "currency_symbol": sym,
-            "is_local": has_request_context() and request.remote_addr in ("127.0.0.1", "::1", "localhost")}
+            "is_local": has_request_context() and request.remote_addr in ("127.0.0.1", "::1", "localhost"),
+            "visitor_count": _visitor_count(increment=inc)}
 
 CATS = {
     "cpu": {"key": "cpus", "title": "CPUs", "value_col": "value", "value_label": "CPU Value (Mark/$)"},

@@ -130,5 +130,8 @@ function toggleTheme(){ const cur = document.body.classList.contains("light") ? 
 (function(){ applyTheme(localStorage.getItem("theme") || "dark"); })();
 </script>
 {% block scripts %}{% endblock %}
+<footer class="text-center muted small py-3 mt-4" style="border-top:1px solid #334155">
+  <div>Visitors: {{ visitor_count }} &middot; <a href="/sources">Sources</a> &middot; <a href="/sitemap.xml">Sitemap</a></div>
+</footer>
 </body>
 </html>
