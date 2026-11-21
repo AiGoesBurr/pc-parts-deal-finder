@@ -319,13 +319,28 @@ def export_csv(cat):
                     headers={"Content-Disposition": f"attachment; filename={cat}.csv"})
 
 PC_PART_KEYWORDS = ["ryzen", "core i3", "core i5", "core i7", "core i9", "core ultra", "processor", "cpu", "graphics card", "gpu", "geforce", "radeon", "rtx", "gtx", "rx 6", "rx 7", "rx 9", "motherboard", "ddr4", "ddr5", "ssd", "nvme", "hard drive", "hdd", "power supply", "psu", "cpu cooler", "aio cooler", "liquid cooler", "thermal paste", "pc case"]
-SYSTEM_KEYWORDS = ["laptop", "notebook", "chromebook", "macbook", "mac mini", "mac pro", "imac", "prebuilt", "gaming pc", "desktop computer", "desktop pc", "desktop w/", "desktop:", "all-in-one", "thinkpad", "omnibook", "aspire", "yoga", "nitro", "swift", "predator", "helios", "aegis", "loq", "alienware", "omen", "victus", "legion", "ideapad", "thinkcentre", "optiplex", "vostro", "latitude", "precision", "surface", "monitor", "keyboard", "mouse", "headset", "speaker", "webcam", "lego", "drill", "mattress", "smartwatch", "earbuds", "filament", "picture frame", "phone", "tablet", "mini pc", "car refrigerator", "portable fridge", "refrigerator", "beverage", "scanner", "soft-sided", "soft cooler", "hard cooler", "can cooler", "ozark", "trail", "insulated", "removable hard liner", "marine cooler", "3d", "printer", "marine cooler", "soft cooler", "hard cooler", "cooler cup", "mini fridge", "wine cooler", "insulated", "liquid death", "coleman", "stanley", "aurora"]
+SYSTEM_KEYWORDS = ["laptop", "notebook", "chromebook", "macbook", "mac mini", "mac pro", "imac", "prebuilt", "gaming pc", "desktop computer", "desktop pc", "desktop w/", "desktop:", "all-in-one", "thinkpad", "omnibook", "aspire", "yoga", "nitro", "swift", "predator", "helios", "aegis", "loq", "alienware", "omen", "victus", "legion", "ideapad", "thinkcentre", "optiplex", "vostro", "latitude", "precision", "surface", "monitor", "keyboard", "mouse", "headset", "speaker", "webcam", "lego", "drill", "mattress", "smartwatch", "earbuds", "filament", "picture frame", "phone", "tablet", "mini pc", "car refrigerator", "portable fridge", "refrigerator", "beverage", "scanner", "soft-sided", "soft cooler", "hard cooler", "can cooler", "ozark", "trail", "insulated", "removable hard liner", "marine cooler", "3d", "printer", "marine cooler", "soft cooler", "hard cooler", "cooler cup", "mini fridge", "wine cooler", "insulated", "liquid death", "coleman", "stanley", "aurora", "dog", "cat", "pet", "puppy", "kitten", "feeder", "food", "dispenser", "bowl", "fish", "bird", "animal", "poultry", "livestock", "hamster", "rabbit", "reptile", "aquarium", "terrarium", "cage", "kennel", "litter", "groom", "leash", "collar", "treat", "molly", "cody"]
 
 def _is_pc_part(title):
     low = title.lower()
     if any(x in low for x in SYSTEM_KEYWORDS):
         return False
-    return any(k in low for k in PC_PART_KEYWORDS)
+    if not any(k in low for k in PC_PART_KEYWORDS):
+        return False
+    # "power supply" is a common false positive (e.g. pet feeders, gadgets
+    # that merely mention a dual power supply). Only treat it as a PC part
+    # when the title actually looks like a power supply, unless another PC
+    # keyword is also present.
+    psu_terms = ("power supply", "psu")
+    if any(t in low for t in psu_terms):
+        other_pc = any(k in low for k in PC_PART_KEYWORDS if k not in psu_terms)
+        if not other_pc:
+            if not (_re.search(r"\d+\s*w\b", low)
+                    or any(tok in low for tok in ("atx", "sfx", "modular", "80+", "80 plus",
+                                                  "bronze", "gold", "platinum", "titanium",
+                                                  "semi-modular", "full modular"))):
+                return False
+    return True
 
 import re as _re
 
