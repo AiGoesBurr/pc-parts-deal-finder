@@ -1,4 +1,4 @@
-import json, os, time, threading, logging
+import gzip, json, os, time, threading, logging
 logger = logging.getLogger("pcparts.cache")
 from datetime import datetime
 
@@ -56,7 +56,21 @@ def load_cache(region="us"):
     region = _valid_region(region)
     p = _cache_path(region)
     if not os.path.exists(p):
-        return None
+        # GitHub Actions commits a gzipped snapshot so a fresh deploy has data.
+        p_gz = p + ".gz"
+        if not os.path.exists(p_gz):
+            return None
+        try:
+            entry = _mem_cache.get(region)
+            mtime = os.path.getmtime(p_gz)
+            if entry and entry[0] == mtime:
+                return entry[1]
+            with gzip.open(p_gz, "rt", encoding="utf-8") as f:
+                data = json.load(f)
+            _mem_cache[region] = (mtime, data)
+            return data
+        except Exception:
+            return None
     try:
         mtime = os.path.getmtime(p)
         entry = _mem_cache.get(region)

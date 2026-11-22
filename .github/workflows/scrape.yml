@@ -1,16 +1,52 @@
 name: Scheduled scrape
+
 on:
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger scrape
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Refresh parts data
+        run: python scripts/refresh_data.py
+
+      - name: Commit refreshed data
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f data/cache_us.json.gz datasets/cpu_cores.json
+          if git diff --cached --quiet; then
+            echo "No data changes"
+          else
+            git commit -m "Refresh parts data (automated)"
+            git push
+          fi
+
+      - name: Trigger live scrape
+        env:
+          SCRAPE_TOKEN: ${{ secrets.SCRAPE_TOKEN }}
+        run: |
+          if [ -z "$SCRAPE_TOKEN" ]; then
+            echo "SCRAPE_TOKEN not set; skipping"
+            exit 0
+          fi
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 \
-            -X POST -H "X-Scrape-Token: ${{ secrets.SCRAPE_TOKEN }}" \
+            -X POST -H "X-Scrape-Token: $SCRAPE_TOKEN" \
             https://pc-parts-an-deals.onrender.com/api/scrape)
           echo "HTTP status: $HTTP_CODE"
-          if [ "$HTTP_CODE" != "200" ]; then echo "Scrape trigger failed"; fi
