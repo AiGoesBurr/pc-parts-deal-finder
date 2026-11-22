@@ -191,41 +191,44 @@ def _do_scrape(region="us"):
         except Exception as e:
             logger.warning("CPU core merge failed: %s", e)
             payload["cpu_core_error"] = str(e)
-        # merge cores/threads/socket/tdp from TechPowerUp CPU specs
+        # merge cores/threads/socket/tdp from a bundled TechPowerUp snapshot
+        # (avoids 403s on hosted environments where TechPowerUp blocks datacenter IPs)
         try:
-            from scrapers.techpowerup import scrape_cpu_cores as scrape_tp
-            import re
-            def _norm2(n):
-                n = (n or "").lower()
-                n = re.sub(r"@\s*[\d\.]+\s*ghz", "", n)
-                n = re.sub(r"\s+", " ", n).strip()
-                return n
-            def _token2(n):
-                toks = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", n or "")
-                cand = [t for t in toks if any(c.isdigit() for c in t)]
-                return max(cand, key=len).lower() if cand else None
-            tp_map = {}
-            for item in scrape_tp():
-                nm = _norm2(item.get("name"))
-                tp_map[nm] = item
-                t = _token2(item.get("name"))
-                if t:
-                    tp_map.setdefault(t, item)
-            for c in payload.get("cpus", []):
-                it = tp_map.get(_norm2(c.get("name"))) or tp_map.get(_token2(c.get("name")))
-                if not it:
-                    continue
-                if c.get("cores") is None and it.get("cores") is not None:
-                    c["cores"] = it.get("cores")
-                if c.get("threads") is None and it.get("threads") is not None:
-                    c["threads"] = it.get("threads")
-                if c.get("socket") is None and it.get("socket"):
-                    c["socket"] = it.get("socket")
-                if c.get("tdp") is None and it.get("tdp") is not None:
-                    c["tdp"] = it.get("tdp")
+            import json as _json
+            tp_path = os.path.join(os.path.dirname(__file__), "datasets", "cpu_cores.json")
+            if os.path.exists(tp_path):
+                with open(tp_path, encoding="utf-8") as f:
+                    tp_data = _json.load(f)
+                import re
+                def _norm2(n):
+                    n = (n or "").lower()
+                    n = re.sub(r"@\s*[\d\.]+\s*ghz", "", n)
+                    n = re.sub(r"\s+", " ", n).strip()
+                    return n
+                def _token2(n):
+                    toks = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", n or "")
+                    cand = [t for t in toks if any(c.isdigit() for c in t)]
+                    return max(cand, key=len).lower() if cand else None
+                tp_map = {}
+                for name, item in tp_data.items():
+                    tp_map[_norm2(name)] = item
+                    t = _token2(name)
+                    if t:
+                        tp_map.setdefault(t, item)
+                for c in payload.get("cpus", []):
+                    it = tp_map.get(_norm2(c.get("name"))) or tp_map.get(_token2(c.get("name")))
+                    if not it:
+                        continue
+                    if c.get("cores") is None and it.get("cores") is not None:
+                        c["cores"] = it.get("cores")
+                    if c.get("threads") is None and it.get("threads") is not None:
+                        c["threads"] = it.get("threads")
+                    if c.get("socket") is None and it.get("socket"):
+                        c["socket"] = it.get("socket")
+                    if c.get("tdp") is None and it.get("tdp") is not None:
+                        c["tdp"] = it.get("tdp")
         except Exception as e:
             logger.warning("TechPowerUp merge failed: %s", e)
-            payload["techpowerup_error"] = str(e)
         try:
             payload["gpus"] = scrape_gpus()
         except Exception as e:
