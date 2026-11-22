@@ -65,17 +65,17 @@
     "socket": "Socket AM4",
     "tdp": 105
   },
-  "Core i9-14900KF": {
-    "cores": 24,
-    "threads": 32,
-    "socket": "Socket 1700",
-    "tdp": 125
-  },
   "Ryzen 5 5600G": {
     "cores": 6,
     "threads": 12,
     "socket": "Socket AM4",
     "tdp": 65
+  },
+  "Core i9-14900KF": {
+    "cores": 24,
+    "threads": 32,
+    "socket": "Socket 1700",
+    "tdp": 125
   },
   "Core i5-14400F": {
     "cores": 10,
@@ -125,17 +125,17 @@
     "socket": "Socket AM5",
     "tdp": 170
   },
-  "Core Ultra 7 270K Plus": {
-    "cores": 24,
-    "threads": null,
-    "socket": "Socket 1851",
-    "tdp": 125
-  },
   "Ryzen 5 5600GT": {
     "cores": 6,
     "threads": 12,
     "socket": "Socket AM4",
     "tdp": 65
+  },
+  "Core Ultra 7 270K Plus": {
+    "cores": 24,
+    "threads": null,
+    "socket": "Socket 1851",
+    "tdp": 125
   },
   "Ryzen 7 5800X": {
     "cores": 8,
@@ -179,17 +179,17 @@
     "socket": "Socket AM4",
     "tdp": 105
   },
-  "Ryzen 5 7520U": {
-    "cores": 4,
-    "threads": 8,
-    "socket": "Socket FT6",
-    "tdp": 15
-  },
   "Ryzen 5 7500F": {
     "cores": 6,
     "threads": 12,
     "socket": "Socket AM5",
     "tdp": 65
+  },
+  "Ryzen 5 7520U": {
+    "cores": 4,
+    "threads": 8,
+    "socket": "Socket FT6",
+    "tdp": 15
   },
   "Ryzen 9 5950X": {
     "cores": 16,
@@ -281,17 +281,17 @@
     "socket": "Socket 1700",
     "tdp": 65
   },
-  "Core i5-1135G7": {
-    "cores": 4,
-    "threads": 8,
-    "socket": "BGA 1449",
-    "tdp": 15
-  },
   "Ryzen 9 3900X": {
     "cores": 12,
     "threads": 24,
     "socket": "Socket AM4",
     "tdp": 105
+  },
+  "Core i5-1135G7": {
+    "cores": 4,
+    "threads": 8,
+    "socket": "BGA 1449",
+    "tdp": 15
   },
   "Ryzen 7 170": {
     "cores": 8,
@@ -347,17 +347,17 @@
     "socket": "Socket 1851",
     "tdp": 125
   },
-  "Ryzen 5 3600X": {
-    "cores": 6,
-    "threads": 12,
-    "socket": "Socket AM4",
-    "tdp": 95
-  },
   "Ryzen 7 5700U": {
     "cores": 8,
     "threads": 16,
     "socket": "Socket FP6",
     "tdp": 15
+  },
+  "Ryzen 5 3600X": {
+    "cores": 6,
+    "threads": 12,
+    "socket": "Socket AM4",
+    "tdp": 95
   },
   "Ryzen 5 PRO 4650G": {
     "cores": 6,
@@ -377,6 +377,12 @@
     "socket": "Socket 1200",
     "tdp": 65
   },
+  "Ryzen 5 7600X": {
+    "cores": 6,
+    "threads": 12,
+    "socket": "Socket AM5",
+    "tdp": 105
+  },
   "Core i5-9400F": {
     "cores": 6,
     "threads": null,
@@ -389,23 +395,17 @@
     "socket": "Socket FP11",
     "tdp": 55
   },
-  "Ryzen 5 7600X": {
-    "cores": 6,
-    "threads": 12,
-    "socket": "Socket AM5",
-    "tdp": 105
+  "Ryzen 3 2200G": {
+    "cores": 4,
+    "threads": null,
+    "socket": "Socket AM4",
+    "tdp": 65
   },
   "Ryzen 5 PRO 4650U": {
     "cores": 6,
     "threads": 12,
     "socket": "Socket FP6",
     "tdp": 15
-  },
-  "Ryzen 3 2200G": {
-    "cores": 4,
-    "threads": null,
-    "socket": "Socket AM4",
-    "tdp": 65
   },
   "Ryzen 9 9950X": {
     "cores": 16,
@@ -449,17 +449,17 @@
     "socket": "Socket AM4",
     "tdp": 65
   },
-  "Ryzen AI Max+ PRO 495": {
-    "cores": 16,
-    "threads": 32,
-    "socket": "Socket FP11",
-    "tdp": 55
-  },
   "Ryzen 7 8700G": {
     "cores": 8,
     "threads": 16,
     "socket": "Socket AM5",
     "tdp": 65
+  },
+  "Ryzen AI Max+ PRO 495": {
+    "cores": 16,
+    "threads": 32,
+    "socket": "Socket FP11",
+    "tdp": 55
   },
   "Xeon E5-2673 v3": {
     "cores": 12,
@@ -467,10 +467,22 @@
     "socket": "Socket 2011-3",
     "tdp": 105
   },
+  "Core i7-4790K": {
+    "cores": 4,
+    "threads": 8,
+    "socket": "Socket 1150",
+    "tdp": 88
+  },
   "FX-6300": {
     "cores": 6,
     "threads": null,
     "socket": "Socket AM3+",
+    "tdp": 95
+  },
+  "Core i9-9900K": {
+    "cores": 8,
+    "threads": 16,
+    "socket": "Socket 1151",
     "tdp": 95
   },
   "Ryzen 5 2600X": {
@@ -485,19 +497,13 @@
     "socket": "Socket FP7",
     "tdp": 35
   },
-  "Core i9-9900K": {
+  "Ryzen 7 250": {
     "cores": 8,
     "threads": 16,
-    "socket": "Socket 1151",
-    "tdp": 95
+    "socket": "Socket FP8",
+    "tdp": 28
   },
-  "Core i7-4790K": {
-    "cores": 4,
-    "threads": 8,
-    "socket": "Socket 1150",
-    "tdp": 88
-  },
-  "Ryzen 7 250": {
+  "Ryzen AI 7 350": {
     "cores": 8,
     "threads": 16,
     "socket": "Socket FP8",
@@ -507,12 +513,6 @@
     "cores": 4,
     "threads": 8,
     "socket": "BGA 1449",
-    "tdp": 28
-  },
-  "Ryzen AI 7 350": {
-    "cores": 8,
-    "threads": 16,
-    "socket": "Socket FP8",
     "tdp": 28
   },
   "Core i7-6700": {
@@ -533,29 +533,29 @@
     "socket": "Socket FP6",
     "tdp": 45
   },
-  "Core i5-2400": {
-    "cores": 4,
-    "threads": null,
-    "socket": "Socket 1155",
-    "tdp": 95
-  },
   "Ryzen 7 8845HS": {
     "cores": 8,
     "threads": 16,
     "socket": "Socket FP8",
     "tdp": 45
   },
-  "FX-9590": {
-    "cores": 8,
-    "threads": null,
-    "socket": "Socket AM3+",
-    "tdp": 220
-  },
   "Core i7-4790": {
     "cores": 4,
     "threads": 8,
     "socket": "Socket 1150",
     "tdp": 84
+  },
+  "Core i5-2400": {
+    "cores": 4,
+    "threads": null,
+    "socket": "Socket 1155",
+    "tdp": 95
+  },
+  "FX-9590": {
+    "cores": 8,
+    "threads": null,
+    "socket": "Socket AM3+",
+    "tdp": 220
   },
   "Core i5-10400": {
     "cores": 6,
@@ -575,16 +575,16 @@
     "socket": "Socket 775",
     "tdp": 65
   },
-  "Core i5-13400": {
-    "cores": 10,
-    "threads": 16,
-    "socket": "Socket 1700",
-    "tdp": 65
-  },
   "Core i7-8700": {
     "cores": 6,
     "threads": 12,
     "socket": "Socket 1151",
+    "tdp": 65
+  },
+  "Core i5-13400": {
+    "cores": 10,
+    "threads": 16,
+    "socket": "Socket 1700",
     "tdp": 65
   },
   "Core Ultra X7 358H": {
@@ -593,9 +593,9 @@
     "socket": "BGA 2540",
     "tdp": 25
   },
-  "Ryzen 5 7600": {
-    "cores": 6,
-    "threads": 12,
+  "Ryzen 7 8700F": {
+    "cores": 8,
+    "threads": 16,
     "socket": "Socket AM5",
     "tdp": 65
   }
