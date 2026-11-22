@@ -73,18 +73,46 @@ def parse_mem(row):
         "value": round(1.0 / ppb, 4) if ppb else None,
     }
 
+def parse_network(row):
+    name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
+    price = _num(row.get("Price", "").replace("Add", ""))
+    if price is None:
+        return None
+    protocol = (row.get("Protocol") or "").replace("Protocol", "").strip() or None
+    interface = (row.get("Interface") or "").replace("Interface", "").strip() or None
+    color = (row.get("Color") or "").replace("Color", "").strip() or None
+    return {
+        "category": "network",
+        "brand": name.split()[0] if name else None,
+        "model": None,
+        "name": name,
+        "price": price,
+        "source": "PCPartPicker (manual export)",
+        "source_url": "https://pcpartpicker.com",
+        "protocol": protocol,
+        "interface": interface,
+        "color": color,
+        "value": round(1.0 / price, 4) if price else None,
+    }
+
 def main(paths, refresh_prices=False):
     motherboards = []
     memories = []
+    networks = []
     for path in paths:
         with open(path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             headers = reader.fieldnames or []
             hl = " ".join(h.lower() for h in headers)
             is_mem = ("modules" in hl and "speed" in hl) or "memory" in hl or "capacity" in hl or "type" in hl
+            is_net = "protocol" in hl and "interface" in hl
             for row in reader:
                 try:
-                    if is_mem and ("Module" in str(headers) or "Capacity" in str(headers) or "Speed" in str(headers)):
+                    if is_net:
+                        r = parse_network(row)
+                        if r:
+                            networks.append(r)
+                    elif is_mem and ("Module" in str(headers) or "Capacity" in str(headers) or "Speed" in str(headers)):
                         r = parse_mem(row)
                         if r:
                             memories.append(r)
@@ -92,7 +120,7 @@ def main(paths, refresh_prices=False):
                         motherboards.append(parse_mb(row))
                 except Exception as e:
                     print("skip row:", e)
-    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories")
+    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters")
     for fn in os.listdir(DATA_DIR):
         if not (fn.startswith("cache") and fn.endswith(".json")):
             continue
@@ -106,6 +134,7 @@ def main(paths, refresh_prices=False):
             continue
         existing_mb = data.get("motherboard", [])
         existing_mem = data.get("memory", [])
+        existing_net = data.get("network", [])
         names_mb = {m.get("name"): i for i, m in enumerate(existing_mb)}
         for m in motherboards:
             if m["name"] in names_mb:
@@ -150,15 +179,33 @@ def main(paths, refresh_prices=False):
             else:
                 existing_mem.append(m)
                 names_mem[m["name"]] = len(existing_mem) - 1
+        names_net = {m.get("name"): i for i, m in enumerate(existing_net)}
+        for m in networks:
+            if m["name"] in names_net:
+                if refresh_prices:
+                    idx = names_net[m["name"]]
+                    old = existing_net[idx]
+                    old["price"] = m["price"]
+                    if m.get("protocol"):
+                        old["protocol"] = m["protocol"]
+                    if m.get("interface"):
+                        old["interface"] = m["interface"]
+                    if m.get("color"):
+                        old["color"] = m["color"]
+                    if old.get("price"):
+                        old["value"] = round(1.0 / old["price"], 4)
+            else:
+                existing_net.append(m)
+                names_net[m["name"]] = len(existing_net) - 1
         data["motherboard"] = existing_mb
         data["memory"] = existing_mem
+        data["network"] = existing_net
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         print("updated", fn)
     # keep supplemental dataset in sync
     try:
-        mp = {"motherboard": [], "memory": []}
-        # use us cache if available else first
+        mp = {"motherboard": [], "memory": [], "network": []}
         src = os.path.join(DATA_DIR, "cache_us.json")
         if not os.path.exists(src):
             src = os.path.join(DATA_DIR, "cache.json")
@@ -170,6 +217,9 @@ def main(paths, refresh_prices=False):
         for m in d.get("memory", []):
             if m.get("source") == "PCPartPicker (manual export)":
                 mp["memory"].append(m)
+        for m in d.get("network", []):
+            if m.get("source") == "PCPartPicker (manual export)":
+                mp["network"].append(m)
         out = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "modern_parts.json")
         with open(out, "w", encoding="utf-8") as f:
             json.dump(mp, f, ensure_ascii=False, indent=2)

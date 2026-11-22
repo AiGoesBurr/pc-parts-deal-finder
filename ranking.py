@@ -151,4 +151,6 @@ def is_eligible(cat, r):
         return price >= 30 and "test bench" not in (r.get("form_factor") or "").lower()
     if cat == "cooler":
         return price >= 15
+    if cat == "network":
+        return price >= 10
     return True
