@@ -124,6 +124,7 @@ CATS = {
     "webcam": {"key": "webcam", "title": "Webcams", "value_col": "value", "value_label": "Value (1/$)"},
     "speakers": {"key": "speakers", "title": "Computer Speakers", "value_col": "value", "value_label": "Value (1/$)"},
     "external_storage": {"key": "external_storage", "title": "External Storage", "value_col": "value", "value_label": "Value (1/$ per GB)"},
+    "router": {"key": "router", "title": "Routers", "value_col": "value", "value_label": "Value (1/$)"},
 }
 
 def _region():
@@ -345,7 +346,7 @@ def export_csv(cat):
     return Response(buf.getvalue(), mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename={cat}.csv"})
 
-PC_PART_KEYWORDS = ["ryzen", "core i3", "core i5", "core i7", "core i9", "core ultra", "processor", "cpu", "graphics card", "gpu", "geforce", "radeon", "rtx", "gtx", "rx 6", "rx 7", "rx 9", "motherboard", "ddr4", "ddr5", "ssd", "nvme", "hard drive", "hdd", "power supply", "psu", "cpu cooler", "aio cooler", "liquid cooler", "thermal paste", "pc case", "monitor", "keyboard", "mouse", "headphones", "headset", "speaker", "webcam", "network adapter", "wifi", "bluetooth", "ups", "battery backup", "sound card", "external storage", "external drive", "ram", "memory"]
+PC_PART_KEYWORDS = ["ryzen", "core i3", "core i5", "core i7", "core i9", "core ultra", "processor", "cpu", "graphics card", "gpu", "geforce", "radeon", "rtx", "gtx", "rx 6", "rx 7", "rx 9", "motherboard", "ddr4", "ddr5", "ssd", "nvme", "hard drive", "hdd", "power supply", "psu", "cpu cooler", "aio cooler", "liquid cooler", "thermal paste", "pc case", "monitor", "keyboard", "mouse", "headphones", "headset", "speaker", "webcam", "network adapter", "wifi", "bluetooth", "ups", "battery backup", "sound card", "external storage", "external drive", "ram", "memory", "router", "mesh wifi"]
 
 _deals_cache = {"at": 0.0, "data": [], "loading": False}
 _deals_lock = _threading.Lock()
@@ -410,6 +411,7 @@ DEAL_CAT_RULES = [
     ("headphones", ["headphones", "headset", "earbuds"]),
     ("speakers", ["speaker"]),
     ("webcam", ["webcam"]),
+    ("router", ["router", "mesh wifi", "mesh system", "wi-fi 7 router", "wi-fi 6 router"]),
     ("network", ["network adapter", "wifi", "wi-fi", "bluetooth adapter"]),
     ("ups", ["ups", "battery backup", "uninterruptible"]),
     ("sound", ["sound card"]),
@@ -432,7 +434,7 @@ def _refresh_deals():
     seen = set()
     queries = ["cpu", "gpu", "ssd", "motherboard", "power supply", "cooler", "ram",
                "monitor", "keyboard", "mouse", "headphones", "case", "network adapter",
-               "wifi", "ups", "sound card", "webcam", "speakers", "external storage",
+               "wifi", "router", "ups", "sound card", "webcam", "speakers", "external storage",
                "external drive"]
     for q in queries:
         url = "https://slickdeals.net/newsearch.php?src=SearchBarV2&q=" + q.replace(" ", "+") + "&searcharea=deals&searchin=first&rss=1"
@@ -564,7 +566,7 @@ def api_liveprice():
 PLACEHOLDER_LABELS = {"cpu": "CPU", "gpu": "GPU", "memory": "RAM", "storage": "SSD", "psu": "PSU",
                       "motherboard": "BOARD", "case": "CASE", "cooler": "COOLER", "prebuilt": "PC",
                       "monitor": "MONITOR", "keyboard": "KEYS", "mouse": "MOUSE", "headphones": "AUDIO",
-                      "network": "NET", "ups": "UPS", "sound": "SND", "webcam": "CAM", "speakers": "SPK", "external_storage": "EXT"}
+                      "network": "NET", "ups": "UPS", "sound": "SND", "webcam": "CAM", "speakers": "SPK", "external_storage": "EXT", "router": "RTR"}
 
 @app.route("/api/image")
 def api_image():

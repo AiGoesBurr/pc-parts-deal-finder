@@ -198,6 +198,32 @@ def parse_external(row):
         "value": round(1.0 / ppb, 4) if ppb else (round(1.0 / price, 4) if price else None),
     }
 
+def parse_router(row):
+    name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
+    price = _num((row.get("Price") or "").replace("Add", "").replace("Out of stock", ""))
+    if price is None:
+        return None
+    def _field(*keys):
+        for k in keys:
+            v = row.get(k)
+            if v:
+                return v.replace(k, "").strip() or None
+        return None
+    return {
+        "category": "router",
+        "brand": name.split()[0] if name else None,
+        "model": None,
+        "name": name,
+        "price": price,
+        "source": "PCPartPicker (manual export)",
+        "source_url": "https://pcpartpicker.com",
+        "wireless_standard": _field("Wireless Standard", "Protocol", "Wi-Fi"),
+        "bands": _field("Bands", "Frequency"),
+        "ports": _field("LAN Ports", "Ports"),
+        "speed": _field("Speed", "Throughput"),
+        "value": round(1.0 / price, 4) if price else None,
+    }
+
 def parse_network(row):
     name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
     price = _num(row.get("Price", "").replace("Add", ""))
@@ -229,6 +255,7 @@ def main(paths, refresh_prices=False):
     webcams = []
     speakers = []
     externals = []
+    routers = []
     for path in paths:
         with open(path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -241,9 +268,14 @@ def main(paths, refresh_prices=False):
             is_webcam = "resolution" in hl and "connection" in hl and "focus type" in hl
             is_speakers = "configuration" in hl and "total wattage" in hl
             is_external = "type" in hl and "interface" in hl and "capacity" in hl
+            is_router = ("wireless standard" in hl or "lan ports" in hl or "throughput" in hl) and "price" in hl
             for row in reader:
                 try:
-                    if is_external:
+                    if is_router:
+                        r = parse_router(row)
+                        if r:
+                            routers.append(r)
+                    elif is_external:
                         r = parse_external(row)
                         if r:
                             externals.append(r)
@@ -275,7 +307,7 @@ def main(paths, refresh_prices=False):
                         motherboards.append(parse_mb(row))
                 except Exception as e:
                     print("skip row:", e)
-    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters, {len(upses)} UPS units, {len(sounds)} sound cards, {len(webcams)} webcams, {len(speakers)} speakers, {len(externals)} external storage")
+    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters, {len(upses)} UPS units, {len(sounds)} sound cards, {len(webcams)} webcams, {len(speakers)} speakers, {len(externals)} external storage, {len(routers)} routers")
     for fn in os.listdir(DATA_DIR):
         if not (fn.startswith("cache") and fn.endswith(".json")):
             continue
@@ -295,6 +327,7 @@ def main(paths, refresh_prices=False):
         existing_webcam = data.get("webcam", [])
         existing_speakers = data.get("speakers", [])
         existing_external = data.get("external_storage", [])
+        existing_router = data.get("router", [])
         names_mb = {m.get("name"): i for i, m in enumerate(existing_mb)}
         for m in motherboards:
             if m["name"] in names_mb:
@@ -449,6 +482,21 @@ def main(paths, refresh_prices=False):
             else:
                 existing_external.append(m)
                 names_external[m["name"]] = len(existing_external) - 1
+        names_router = {m.get("name"): i for i, m in enumerate(existing_router)}
+        for m in routers:
+            if m["name"] in names_router:
+                if refresh_prices:
+                    idx = names_router[m["name"]]
+                    old = existing_router[idx]
+                    old["price"] = m["price"]
+                    for k in ("wireless_standard", "bands", "ports", "speed"):
+                        if m.get(k):
+                            old[k] = m[k]
+                    if old.get("price"):
+                        old["value"] = round(1.0 / old["price"], 4)
+            else:
+                existing_router.append(m)
+                names_router[m["name"]] = len(existing_router) - 1
         data["motherboard"] = existing_mb
         data["memory"] = existing_mem
         data["network"] = existing_net
@@ -457,12 +505,13 @@ def main(paths, refresh_prices=False):
         data["webcam"] = existing_webcam
         data["speakers"] = existing_speakers
         data["external_storage"] = existing_external
+        data["router"] = existing_router
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         print("updated", fn)
     # keep supplemental dataset in sync
     try:
-        mp = {"motherboard": [], "memory": [], "network": [], "ups": [], "sound": [], "webcam": [], "speakers": [], "external_storage": []}
+        mp = {"motherboard": [], "memory": [], "network": [], "ups": [], "sound": [], "webcam": [], "speakers": [], "external_storage": [], "router": []}
         src = os.path.join(DATA_DIR, "cache_us.json")
         if not os.path.exists(src):
             src = os.path.join(DATA_DIR, "cache.json")
@@ -492,6 +541,9 @@ def main(paths, refresh_prices=False):
         for m in d.get("external_storage", []):
             if m.get("source") == "PCPartPicker (manual export)":
                 mp["external_storage"].append(m)
+        for m in d.get("router", []):
+            if m.get("source") == "PCPartPicker (manual export)":
+                mp["router"].append(m)
         out = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "modern_parts.json")
         with open(out, "w", encoding="utf-8") as f:
             json.dump(mp, f, ensure_ascii=False, indent=2)

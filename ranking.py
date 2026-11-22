@@ -163,4 +163,6 @@ def is_eligible(cat, r):
         return price >= 10
     if cat == "external_storage":
         return price >= 10
+    if cat == "router":
+        return price >= 20
     return True
