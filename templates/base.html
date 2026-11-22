@@ -65,6 +65,7 @@
   }
 </style>
 {% if adsense_client %}
+<meta name="google-adsense-account" content="{{ adsense_client }}">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ adsense_client }}" crossorigin="anonymous"></script>
 {% endif %}
 {% block head %}{% endblock %}
