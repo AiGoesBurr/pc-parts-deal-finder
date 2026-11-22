@@ -393,6 +393,9 @@ def _parse_price(title):
 DEAL_CAT_RULES = [
     ("cooler", ["cpu cooler", "aio cooler", "liquid cooler", "air cooler", "water cooler",
                 "cpu fan", "aio pump", "liquid cooling"]),
+    ("external_storage", ["nas", "network attached storage", "4-bay", "2-bay",
+                          "drive enclosure", "hard drive enclosure", "external storage",
+                          "external drive", "external ssd", "external hdd"]),
     ("cpu", ["ryzen", "core i3", "core i5", "core i7", "core i9", "core ultra", "processor", "cpu"]),
     ("gpu", ["graphics card", "gpu", "geforce", "radeon", "rtx", "gtx", "rx 6", "rx 7", "rx 9"]),
     ("memory", ["ddr4", "ddr5", "ram", "memory"]),
