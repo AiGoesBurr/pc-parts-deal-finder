@@ -10,11 +10,31 @@ from autobuild import build_within_budget
 
 app = Flask(__name__)
 
-VISITOR_FILE = os.path.join(os.path.dirname(__file__), "data", "visitors.json")
+VISITOR_FILE = os.environ.get("VISITOR_FILE") or os.path.join(os.path.dirname(__file__), "data", "visitors.json")
 _visitor_lock = _threading.Lock()
 
 
 def _visitor_count(increment=False):
+    # Optional external store (e.g. Upstash Redis) for persistence across
+    # ephemeral deploys. Configure with UPSTASH_REDIS_REST_URL and
+    # UPSTASH_REDIS_REST_TOKEN. Falls back to a local file otherwise.
+    upstash_url = (os.environ.get("UPSTASH_REDIS_REST_URL") or "").rstrip("/")
+    upstash_token = os.environ.get("UPSTASH_REDIS_REST_TOKEN")
+    if upstash_url and upstash_token:
+        try:
+            import requests as _rq
+            headers = {"Authorization": f"Bearer {upstash_token}"}
+            if increment:
+                r = _rq.post(upstash_url + "/incr/visitors", headers=headers, timeout=5)
+            else:
+                r = _rq.get(upstash_url + "/get/visitors", headers=headers, timeout=5)
+            r.raise_for_status()
+            val = r.json().get("result")
+            if val is None:
+                return 0
+            return int(val)
+        except Exception:
+            pass  # fall through to local file
     with _visitor_lock:
         try:
             with open(VISITOR_FILE, encoding="utf-8") as f:
