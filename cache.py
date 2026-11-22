@@ -259,6 +259,21 @@ def _do_scrape(region="us"):
         except Exception as e:
             logger.warning("PCPartPicker scrape failed: %s", e)
             payload["parts_error"] = str(e)
+        # merge curated modern parts (AM5/LGA1700 boards, DDR5 memory)
+        try:
+            mp_path = os.path.join(os.path.dirname(__file__), "datasets", "modern_parts.json")
+            if os.path.exists(mp_path):
+                with open(mp_path, encoding="utf-8") as f:
+                    mp = json.load(f)
+                for key in ("motherboard", "memory"):
+                    rows = payload.setdefault(key, [])
+                    names = {r.get("name") for r in rows if isinstance(r, dict)}
+                    for r in (mp.get(key) or []):
+                        if isinstance(r, dict) and r.get("name") not in names:
+                            rows.append(r)
+                            names.add(r.get("name"))
+        except Exception as e:
+            logger.warning("modern parts merge failed: %s", e)
         try:
             from scrapers.prebuilt import scrape_prebuilts
             payload["prebuilts"] = scrape_prebuilts()

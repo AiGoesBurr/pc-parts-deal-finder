@@ -140,7 +140,7 @@ def is_eligible(cat, r):
         score = r.get("score") or 0
         return score > 0 and is_current_gpu(name) and price >= gpu_price_floor(score)
     if cat == "memory":
-        return r.get("module_type") == "DDR4" and (r.get("capacity_gb") or 0) >= 16 and price >= 15
+        return r.get("module_type") in ("DDR4", "DDR5") and (r.get("capacity_gb") or 0) >= 16 and price >= 15
     if cat == "storage":
         return r.get("storage_type") == "SSD" and (r.get("capacity_gb") or 0) >= 250 and price >= 20
     if cat == "psu":

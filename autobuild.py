@@ -6,7 +6,6 @@ SHARES = {"gpu": 0.32, "cpu": 0.20, "motherboard": 0.11, "memory": 0.08,
           "storage": 0.08, "psu": 0.09, "case": 0.07, "cooler": 0.05}
 MULTIPLIERS = (1.25, 1.6, 2.5)
 DATA_NOTES = [
-    "Our parts data has no AM5 or LGA1700 motherboards and no DDR5 memory, so builds use AM4 (Ryzen 3000/5000) or LGA1200 (Intel 10th/11th gen).",
     "Cooler socket support isn't in our data. Check that the cooler fits your CPU before buying.",
     "Prices come from PassMark and PCPartPicker snapshots and may be out of date. Check the Buy links before you buy.",
 ]
