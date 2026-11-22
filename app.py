@@ -102,7 +102,7 @@ def inject_region():
     return {"region": reg, "currency_symbol": sym,
             "is_local": has_request_context() and request.remote_addr in ("127.0.0.1", "::1", "localhost"),
             "visitor_count": _visitor_count(increment=inc),
-            "adsense_client": os.environ.get("ADSENSE_CLIENT")}
+            "adsense_client": os.environ.get("ADSENSE_CLIENT", "ca-pub-2012616805883507")}
 
 CATS = {
     "cpu": {"key": "cpus", "title": "CPUs", "value_col": "value", "value_label": "CPU Value (Mark/$)"},
