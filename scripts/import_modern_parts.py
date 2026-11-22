@@ -170,6 +170,34 @@ def parse_speakers(row):
         "value": round(1.0 / price, 4) if price else None,
     }
 
+def parse_external(row):
+    name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
+    price = _num(row.get("Price", "").replace("Add", "").replace("Out of stock", ""))
+    if price is None:
+        return None
+    typ = (row.get("Type") or "").replace("Type", "").strip() or None
+    interface = (row.get("Interface") or "").replace("Interface", "").strip() or None
+    cap = _num((row.get("Capacity") or "").replace("Capacity", ""))
+    ppb = _num((row.get("Price / GB") or "").replace("Price / GB", ""))
+    if ppb is None and price and cap:
+        ppb = round(price / cap, 4)
+    color = (row.get("Color") or "").replace("Color", "").strip() or None
+    return {
+        "category": "external_storage",
+        "brand": name.split()[0] if name else None,
+        "model": None,
+        "name": name,
+        "price": price,
+        "source": "PCPartPicker (manual export)",
+        "source_url": "https://pcpartpicker.com",
+        "type": typ,
+        "interface": interface,
+        "capacity_gb": cap,
+        "price_per_gb": ppb,
+        "color": color,
+        "value": round(1.0 / ppb, 4) if ppb else (round(1.0 / price, 4) if price else None),
+    }
+
 def parse_network(row):
     name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
     price = _num(row.get("Price", "").replace("Add", ""))
@@ -200,6 +228,7 @@ def main(paths, refresh_prices=False):
     sounds = []
     webcams = []
     speakers = []
+    externals = []
     for path in paths:
         with open(path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -211,9 +240,14 @@ def main(paths, refresh_prices=False):
             is_sound = "channels" in hl and "snr" in hl
             is_webcam = "resolution" in hl and "connection" in hl and "focus type" in hl
             is_speakers = "configuration" in hl and "total wattage" in hl
+            is_external = "type" in hl and "interface" in hl and "capacity" in hl
             for row in reader:
                 try:
-                    if is_speakers:
+                    if is_external:
+                        r = parse_external(row)
+                        if r:
+                            externals.append(r)
+                    elif is_speakers:
                         r = parse_speakers(row)
                         if r:
                             speakers.append(r)
@@ -241,7 +275,7 @@ def main(paths, refresh_prices=False):
                         motherboards.append(parse_mb(row))
                 except Exception as e:
                     print("skip row:", e)
-    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters, {len(upses)} UPS units, {len(sounds)} sound cards, {len(webcams)} webcams, {len(speakers)} speakers")
+    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters, {len(upses)} UPS units, {len(sounds)} sound cards, {len(webcams)} webcams, {len(speakers)} speakers, {len(externals)} external storage")
     for fn in os.listdir(DATA_DIR):
         if not (fn.startswith("cache") and fn.endswith(".json")):
             continue
@@ -260,6 +294,7 @@ def main(paths, refresh_prices=False):
         existing_sound = data.get("sound", [])
         existing_webcam = data.get("webcam", [])
         existing_speakers = data.get("speakers", [])
+        existing_external = data.get("external_storage", [])
         names_mb = {m.get("name"): i for i, m in enumerate(existing_mb)}
         for m in motherboards:
             if m["name"] in names_mb:
@@ -394,6 +429,26 @@ def main(paths, refresh_prices=False):
             else:
                 existing_speakers.append(m)
                 names_speakers[m["name"]] = len(existing_speakers) - 1
+        names_external = {m.get("name"): i for i, m in enumerate(existing_external)}
+        for m in externals:
+            if m["name"] in names_external:
+                if refresh_prices:
+                    idx = names_external[m["name"]]
+                    old = existing_external[idx]
+                    old["price"] = m["price"]
+                    if m.get("type"):
+                        old["type"] = m["type"]
+                    if m.get("interface"):
+                        old["interface"] = m["interface"]
+                    if m.get("capacity_gb"):
+                        old["capacity_gb"] = m["capacity_gb"]
+                    if m.get("price_per_gb"):
+                        old["price_per_gb"] = m["price_per_gb"]
+                    if old.get("price_per_gb"):
+                        old["value"] = round(1.0 / old["price_per_gb"], 4)
+            else:
+                existing_external.append(m)
+                names_external[m["name"]] = len(existing_external) - 1
         data["motherboard"] = existing_mb
         data["memory"] = existing_mem
         data["network"] = existing_net
@@ -401,12 +456,13 @@ def main(paths, refresh_prices=False):
         data["sound"] = existing_sound
         data["webcam"] = existing_webcam
         data["speakers"] = existing_speakers
+        data["external_storage"] = existing_external
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         print("updated", fn)
     # keep supplemental dataset in sync
     try:
-        mp = {"motherboard": [], "memory": [], "network": [], "ups": [], "sound": [], "webcam": [], "speakers": []}
+        mp = {"motherboard": [], "memory": [], "network": [], "ups": [], "sound": [], "webcam": [], "speakers": [], "external_storage": []}
         src = os.path.join(DATA_DIR, "cache_us.json")
         if not os.path.exists(src):
             src = os.path.join(DATA_DIR, "cache.json")
@@ -433,6 +489,9 @@ def main(paths, refresh_prices=False):
         for m in d.get("speakers", []):
             if m.get("source") == "PCPartPicker (manual export)":
                 mp["speakers"].append(m)
+        for m in d.get("external_storage", []):
+            if m.get("source") == "PCPartPicker (manual export)":
+                mp["external_storage"].append(m)
         out = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "modern_parts.json")
         with open(out, "w", encoding="utf-8") as f:
             json.dump(mp, f, ensure_ascii=False, indent=2)

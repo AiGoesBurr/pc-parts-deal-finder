@@ -161,4 +161,6 @@ def is_eligible(cat, r):
         return price >= 15
     if cat == "speakers":
         return price >= 10
+    if cat == "external_storage":
+        return price >= 10
     return True
