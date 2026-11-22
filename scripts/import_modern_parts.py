@@ -146,6 +146,30 @@ def parse_webcam(row):
         "value": round(1.0 / price, 4) if price else None,
     }
 
+def parse_speakers(row):
+    name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
+    price = _num(row.get("Price", "").replace("Add", "").replace("Out of stock", ""))
+    if price is None:
+        return None
+    config = (row.get("Configuration") or "").replace("Configuration", "").strip() or None
+    wattage = (row.get("Total Wattage") or "").replace("Total Wattage", "").strip() or None
+    freq = (row.get("Frequency Response") or "").replace("Frequency Response", "").strip() or None
+    color = (row.get("Color") or "").replace("Color", "").strip() or None
+    return {
+        "category": "speakers",
+        "brand": name.split()[0] if name else None,
+        "model": None,
+        "name": name,
+        "price": price,
+        "source": "PCPartPicker (manual export)",
+        "source_url": "https://pcpartpicker.com",
+        "configuration": config,
+        "total_wattage": wattage,
+        "frequency_response": freq,
+        "color": color,
+        "value": round(1.0 / price, 4) if price else None,
+    }
+
 def parse_network(row):
     name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
     price = _num(row.get("Price", "").replace("Add", ""))
@@ -175,6 +199,7 @@ def main(paths, refresh_prices=False):
     upses = []
     sounds = []
     webcams = []
+    speakers = []
     for path in paths:
         with open(path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -185,9 +210,14 @@ def main(paths, refresh_prices=False):
             is_ups = "capacity (w)" in hl or "capacity (va)" in hl
             is_sound = "channels" in hl and "snr" in hl
             is_webcam = "resolution" in hl and "connection" in hl and "focus type" in hl
+            is_speakers = "configuration" in hl and "total wattage" in hl
             for row in reader:
                 try:
-                    if is_webcam:
+                    if is_speakers:
+                        r = parse_speakers(row)
+                        if r:
+                            speakers.append(r)
+                    elif is_webcam:
                         r = parse_webcam(row)
                         if r:
                             webcams.append(r)
@@ -211,7 +241,7 @@ def main(paths, refresh_prices=False):
                         motherboards.append(parse_mb(row))
                 except Exception as e:
                     print("skip row:", e)
-    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters, {len(upses)} UPS units, {len(sounds)} sound cards, {len(webcams)} webcams")
+    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters, {len(upses)} UPS units, {len(sounds)} sound cards, {len(webcams)} webcams, {len(speakers)} speakers")
     for fn in os.listdir(DATA_DIR):
         if not (fn.startswith("cache") and fn.endswith(".json")):
             continue
@@ -229,6 +259,7 @@ def main(paths, refresh_prices=False):
         existing_ups = data.get("ups", [])
         existing_sound = data.get("sound", [])
         existing_webcam = data.get("webcam", [])
+        existing_speakers = data.get("speakers", [])
         names_mb = {m.get("name"): i for i, m in enumerate(existing_mb)}
         for m in motherboards:
             if m["name"] in names_mb:
@@ -345,18 +376,37 @@ def main(paths, refresh_prices=False):
             else:
                 existing_webcam.append(m)
                 names_webcam[m["name"]] = len(existing_webcam) - 1
+        names_speakers = {m.get("name"): i for i, m in enumerate(existing_speakers)}
+        for m in speakers:
+            if m["name"] in names_speakers:
+                if refresh_prices:
+                    idx = names_speakers[m["name"]]
+                    old = existing_speakers[idx]
+                    old["price"] = m["price"]
+                    if m.get("configuration"):
+                        old["configuration"] = m["configuration"]
+                    if m.get("total_wattage"):
+                        old["total_wattage"] = m["total_wattage"]
+                    if m.get("frequency_response"):
+                        old["frequency_response"] = m["frequency_response"]
+                    if old.get("price"):
+                        old["value"] = round(1.0 / old["price"], 4)
+            else:
+                existing_speakers.append(m)
+                names_speakers[m["name"]] = len(existing_speakers) - 1
         data["motherboard"] = existing_mb
         data["memory"] = existing_mem
         data["network"] = existing_net
         data["ups"] = existing_ups
         data["sound"] = existing_sound
         data["webcam"] = existing_webcam
+        data["speakers"] = existing_speakers
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         print("updated", fn)
     # keep supplemental dataset in sync
     try:
-        mp = {"motherboard": [], "memory": [], "network": [], "ups": [], "sound": [], "webcam": []}
+        mp = {"motherboard": [], "memory": [], "network": [], "ups": [], "sound": [], "webcam": [], "speakers": []}
         src = os.path.join(DATA_DIR, "cache_us.json")
         if not os.path.exists(src):
             src = os.path.join(DATA_DIR, "cache.json")
@@ -380,6 +430,9 @@ def main(paths, refresh_prices=False):
         for m in d.get("webcam", []):
             if m.get("source") == "PCPartPicker (manual export)":
                 mp["webcam"].append(m)
+        for m in d.get("speakers", []):
+            if m.get("source") == "PCPartPicker (manual export)":
+                mp["speakers"].append(m)
         out = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "modern_parts.json")
         with open(out, "w", encoding="utf-8") as f:
             json.dump(mp, f, ensure_ascii=False, indent=2)

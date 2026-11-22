@@ -160,6 +160,7 @@ const COLUMNS = {
   ups: ["img","sel","name","brand","capacity_w","capacity_va","price","price_change_pct","value","hist","watch","live","buy"],
   sound: ["img","sel","name","brand","channels","snr","sample_rate","interface","price","price_change_pct","value","hist","watch","live","buy"],
   webcam: ["img","sel","name","brand","resolution","connection","price","price_change_pct","value","hist","watch","live","buy"],
+  speakers: ["img","sel","name","brand","configuration","total_wattage","frequency_response","price","price_change_pct","value","hist","watch","live","buy"],
 };
 
 function buySuffix(cat){
@@ -177,6 +178,7 @@ function buySuffix(cat){
   if (cat==="ups") return " UPS battery backup";
   if (cat==="sound") return " sound card";
   if (cat==="webcam") return " webcam";
+  if (cat==="speakers") return " computer speakers";
   if (cat==="cpu") return " CPU processor";
   if (cat==="gpu") return " graphics card";
   return "";

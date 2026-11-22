@@ -159,4 +159,6 @@ def is_eligible(cat, r):
         return price >= 10
     if cat == "webcam":
         return price >= 15
+    if cat == "speakers":
+        return price >= 10
     return True
