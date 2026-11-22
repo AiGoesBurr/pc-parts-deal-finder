@@ -164,6 +164,7 @@ const COLUMNS = {
   external_storage: ["img","sel","name","brand","type","interface","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","live","buy"],
   router: ["img","sel","name","brand","wireless_standard","bands","ports","price","price_change_pct","value","hist","watch","live","buy"],
   thermal_paste: ["img","sel","name","brand","price","price_change_pct","value","hist","watch","live","buy"],
+  surge_protector: ["img","sel","name","brand","outlets","joule_rating","price","price_change_pct","value","hist","watch","live","buy"],
 };
 
 function buySuffix(cat){
@@ -185,6 +186,7 @@ function buySuffix(cat){
   if (cat==="external_storage") return " external hard drive";
   if (cat==="router") return " router";
   if (cat==="thermal_paste") return " thermal paste";
+  if (cat==="surge_protector") return " surge protector";
   if (cat==="cpu") return " CPU processor";
   if (cat==="gpu") return " graphics card";
   return "";

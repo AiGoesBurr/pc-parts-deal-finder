@@ -167,4 +167,6 @@ def is_eligible(cat, r):
         return price >= 20
     if cat == "thermal_paste":
         return price >= 3
+    if cat == "surge_protector":
+        return price >= 5
     return True
