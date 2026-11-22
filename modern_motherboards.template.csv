@@ -1,0 +1,3 @@
+category,name,brand,socket,form_factor,ram_slots,max_ram_gb,price
+motherboard,Example AM5 Board,ASUS,AM5,ATX,4,128,199.99
+motherboard,Example LGA1700 Board,MSI,LGA1700,Micro ATX,2,64,149.99
