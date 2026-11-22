@@ -157,6 +157,7 @@ const COLUMNS = {
   mouse: ["img","sel","name","brand","tracking","connection","max_dpi","price","price_change_pct","value","hist","watch","live","buy"],
   headphones: ["img","sel","name","brand","form_factor","is_wireless","price","price_change_pct","value","hist","watch","live","buy"],
   network: ["img","sel","name","brand","protocol","interface","price","price_change_pct","value","hist","watch","live","buy"],
+  ups: ["img","sel","name","brand","capacity_w","capacity_va","price","price_change_pct","value","hist","watch","live","buy"],
 };
 
 function buySuffix(cat){
@@ -171,6 +172,7 @@ function buySuffix(cat){
   if (cat==="mouse") return " mouse";
   if (cat==="headphones") return " headphones";
   if (cat==="network") return " wifi adapter";
+  if (cat==="ups") return " UPS battery backup";
   if (cat==="cpu") return " CPU processor";
   if (cat==="gpu") return " graphics card";
   return "";

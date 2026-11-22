@@ -153,4 +153,6 @@ def is_eligible(cat, r):
         return price >= 15
     if cat == "network":
         return price >= 10
+    if cat == "ups":
+        return price >= 30
     return True

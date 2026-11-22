@@ -73,6 +73,26 @@ def parse_mem(row):
         "value": round(1.0 / ppb, 4) if ppb else None,
     }
 
+def parse_ups(row):
+    name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
+    price = _num(row.get("Price", "").replace("Add", ""))
+    if price is None:
+        return None
+    cap_w = _num((row.get("Capacity (W)") or "").replace("Capacity (W)", ""))
+    cap_va = _num((row.get("Capacity (VA)") or "").replace("Capacity (VA)", ""))
+    return {
+        "category": "ups",
+        "brand": name.split()[0] if name else None,
+        "model": None,
+        "name": name,
+        "price": price,
+        "source": "PCPartPicker (manual export)",
+        "source_url": "https://pcpartpicker.com",
+        "capacity_w": int(cap_w) if cap_w else None,
+        "capacity_va": int(cap_va) if cap_va else None,
+        "value": round((cap_va or cap_w or 0) / price, 4) if price else None,
+    }
+
 def parse_network(row):
     name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
     price = _num(row.get("Price", "").replace("Add", ""))
@@ -99,6 +119,7 @@ def main(paths, refresh_prices=False):
     motherboards = []
     memories = []
     networks = []
+    upses = []
     for path in paths:
         with open(path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -106,9 +127,14 @@ def main(paths, refresh_prices=False):
             hl = " ".join(h.lower() for h in headers)
             is_mem = ("modules" in hl and "speed" in hl) or "memory" in hl or "capacity" in hl or "type" in hl
             is_net = "protocol" in hl and "interface" in hl
+            is_ups = "capacity (w)" in hl or "capacity (va)" in hl
             for row in reader:
                 try:
-                    if is_net:
+                    if is_ups:
+                        r = parse_ups(row)
+                        if r:
+                            upses.append(r)
+                    elif is_net:
                         r = parse_network(row)
                         if r:
                             networks.append(r)
@@ -120,7 +146,7 @@ def main(paths, refresh_prices=False):
                         motherboards.append(parse_mb(row))
                 except Exception as e:
                     print("skip row:", e)
-    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters")
+    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters, {len(upses)} UPS units")
     for fn in os.listdir(DATA_DIR):
         if not (fn.startswith("cache") and fn.endswith(".json")):
             continue
@@ -135,6 +161,7 @@ def main(paths, refresh_prices=False):
         existing_mb = data.get("motherboard", [])
         existing_mem = data.get("memory", [])
         existing_net = data.get("network", [])
+        existing_ups = data.get("ups", [])
         names_mb = {m.get("name"): i for i, m in enumerate(existing_mb)}
         for m in motherboards:
             if m["name"] in names_mb:
@@ -197,15 +224,32 @@ def main(paths, refresh_prices=False):
             else:
                 existing_net.append(m)
                 names_net[m["name"]] = len(existing_net) - 1
+        names_ups = {m.get("name"): i for i, m in enumerate(existing_ups)}
+        for m in upses:
+            if m["name"] in names_ups:
+                if refresh_prices:
+                    idx = names_ups[m["name"]]
+                    old = existing_ups[idx]
+                    old["price"] = m["price"]
+                    if m.get("capacity_w"):
+                        old["capacity_w"] = m["capacity_w"]
+                    if m.get("capacity_va"):
+                        old["capacity_va"] = m["capacity_va"]
+                    if old.get("price"):
+                        old["value"] = round((old.get("capacity_va") or old.get("capacity_w") or 0) / old["price"], 4)
+            else:
+                existing_ups.append(m)
+                names_ups[m["name"]] = len(existing_ups) - 1
         data["motherboard"] = existing_mb
         data["memory"] = existing_mem
         data["network"] = existing_net
+        data["ups"] = existing_ups
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         print("updated", fn)
     # keep supplemental dataset in sync
     try:
-        mp = {"motherboard": [], "memory": [], "network": []}
+        mp = {"motherboard": [], "memory": [], "network": [], "ups": []}
         src = os.path.join(DATA_DIR, "cache_us.json")
         if not os.path.exists(src):
             src = os.path.join(DATA_DIR, "cache.json")
@@ -220,6 +264,9 @@ def main(paths, refresh_prices=False):
         for m in d.get("network", []):
             if m.get("source") == "PCPartPicker (manual export)":
                 mp["network"].append(m)
+        for m in d.get("ups", []):
+            if m.get("source") == "PCPartPicker (manual export)":
+                mp["ups"].append(m)
         out = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "modern_parts.json")
         with open(out, "w", encoding="utf-8") as f:
             json.dump(mp, f, ensure_ascii=False, indent=2)
