@@ -121,6 +121,7 @@ CATS = {
     "network": {"key": "network", "title": "Network Adapters", "value_col": "value", "value_label": "Value (1/$)"},
     "ups": {"key": "ups", "title": "UPS / Battery Backups", "value_col": "value", "value_label": "Value (VA/$)"},
     "sound": {"key": "sound", "title": "Sound Cards", "value_col": "value", "value_label": "Value (1/$)"},
+    "webcam": {"key": "webcam", "title": "Webcams", "value_col": "value", "value_label": "Value (1/$)"},
 }
 
 def _region():
@@ -495,7 +496,7 @@ def api_liveprice():
 PLACEHOLDER_LABELS = {"cpu": "CPU", "gpu": "GPU", "memory": "RAM", "storage": "SSD", "psu": "PSU",
                       "motherboard": "BOARD", "case": "CASE", "cooler": "COOLER", "prebuilt": "PC",
                       "monitor": "MONITOR", "keyboard": "KEYS", "mouse": "MOUSE", "headphones": "AUDIO",
-                      "network": "NET", "ups": "UPS", "sound": "SND"}
+                      "network": "NET", "ups": "UPS", "sound": "SND", "webcam": "CAM"}
 
 @app.route("/api/image")
 def api_image():
