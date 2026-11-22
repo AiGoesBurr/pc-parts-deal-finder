@@ -380,7 +380,37 @@ def _parse_price(title):
             return None
     return None
 
-def fetch_deals(sort="newest"):
+DEAL_CAT_RULES = [
+    ("cpu", ["ryzen", "core i3", "core i5", "core i7", "core i9", "core ultra", "processor", "cpu"]),
+    ("gpu", ["graphics card", "gpu", "geforce", "radeon", "rtx", "gtx", "rx 6", "rx 7", "rx 9"]),
+    ("memory", ["ddr4", "ddr5", "ram", "memory"]),
+    ("storage", ["ssd", "nvme", "hard drive", "hdd"]),
+    ("psu", ["power supply", "psu"]),
+    ("motherboard", ["motherboard"]),
+    ("cooler", ["cooler", "aio", "thermal paste", "liquid cooler"]),
+    ("case", ["pc case", " pc case", "tower case", "mid tower", "mini tower"]),
+    ("monitor", ["monitor"]),
+    ("keyboard", ["keyboard"]),
+    ("mouse", ["mouse"]),
+    ("headphones", ["headphones", "headset", "earbuds"]),
+    ("speakers", ["speaker"]),
+    ("webcam", ["webcam"]),
+    ("network", ["network adapter", "wifi", "wi-fi", "bluetooth adapter"]),
+    ("ups", ["ups", "battery backup", "uninterruptible"]),
+    ("sound", ["sound card"]),
+    ("external_storage", ["external storage", "external drive", "external ssd", "external hdd"]),
+]
+
+
+def _deal_category(title):
+    low = (title or "").lower()
+    for cat, kws in DEAL_CAT_RULES:
+        if any(k in low for k in kws):
+            return cat
+    return "other"
+
+
+def fetch_deals(sort="newest", cat=None):
     queries = ["cpu", "gpu", "ssd", "motherboard", "power supply", "cooler", "ram",
                "monitor", "keyboard", "mouse", "headphones", "case", "network adapter",
                "wifi", "ups", "sound card", "webcam", "speakers", "external storage",
@@ -406,7 +436,7 @@ def fetch_deals(sort="newest"):
             if not _is_pc_part(title):
                 continue
             seen.add(link)
-            deals.append({"title": title, "link": link, "desc": desc, "pubDate": pub, "price": _parse_price(title)})
+            deals.append({"title": title, "link": link, "desc": desc, "pubDate": pub, "price": _parse_price(title), "cat": _deal_category(title)})
     # sort (parse dates so weekday names don't scramble the order)
     from email.utils import parsedate_to_datetime
     def when(d):
@@ -414,6 +444,8 @@ def fetch_deals(sort="newest"):
             return parsedate_to_datetime(d.get("pubDate") or "")
         except Exception:
             return None
+    if cat and cat not in ("", "all", None):
+        deals = [d for d in deals if d.get("cat") == cat]
     if sort == "oldest":
         deals.sort(key=lambda d: (when(d) is None, when(d)))
     elif sort == "price_asc":
@@ -427,7 +459,8 @@ def fetch_deals(sort="newest"):
 @app.route("/deals")
 def deals():
     sort = request.args.get("sort", "newest")
-    return render_template("deals.html", deals=fetch_deals(sort), sort=sort, cats=CATS)
+    cat = request.args.get("cat", "all")
+    return render_template("deals.html", deals=fetch_deals(sort, cat), sort=sort, cat=cat, cats=CATS)
 
 @app.route("/privacy")
 def privacy():

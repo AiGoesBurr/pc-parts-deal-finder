@@ -3,7 +3,14 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>PC hardware deals</h2>
-  <form method="get" action="/deals" class="d-flex align-items-center">
+  <form method="get" action="/deals" class="d-flex align-items-center flex-wrap gap-2">
+    <label class="me-2 muted small">Category:</label>
+    <select name="cat" class="form-select form-select-sm me-2" style="width:auto" onchange="this.form.submit()">
+      <option value="all" {% if cat=='all' %}selected{% endif %}>All categories</option>
+      {% for k, m in cats.items() %}
+      <option value="{{ k }}" {% if cat==k %}selected{% endif %}>{{ m.title }}</option>
+      {% endfor %}
+    </select>
     <label class="me-2 muted small">Sort by:</label>
     <select name="sort" class="form-select form-select-sm me-2" style="width:auto" onchange="this.form.submit()">
       <option value="newest" {% if sort=='newest' %}selected{% endif %}>Newest first</option>
