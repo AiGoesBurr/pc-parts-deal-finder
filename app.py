@@ -346,6 +346,8 @@ def export_csv(cat):
                     headers={"Content-Disposition": f"attachment; filename={cat}.csv"})
 
 PC_PART_KEYWORDS = ["ryzen", "core i3", "core i5", "core i7", "core i9", "core ultra", "processor", "cpu", "graphics card", "gpu", "geforce", "radeon", "rtx", "gtx", "rx 6", "rx 7", "rx 9", "motherboard", "ddr4", "ddr5", "ssd", "nvme", "hard drive", "hdd", "power supply", "psu", "cpu cooler", "aio cooler", "liquid cooler", "thermal paste", "pc case", "monitor", "keyboard", "mouse", "headphones", "headset", "speaker", "webcam", "network adapter", "wifi", "bluetooth", "ups", "battery backup", "sound card", "external storage", "external drive", "ram", "memory"]
+
+_deals_cache = {"at": 0.0, "data": []}
 SYSTEM_KEYWORDS = ["laptop", "notebook", "chromebook", "macbook", "mac mini", "mac pro", "imac", "prebuilt", "gaming pc", "desktop computer", "desktop pc", "desktop w/", "desktop:", "all-in-one", "thinkpad", "omnibook", "aspire", "yoga", "nitro", "swift", "predator", "helios", "aegis", "loq", "alienware", "omen", "victus", "legion", "ideapad", "thinkcentre", "optiplex", "vostro", "latitude", "precision", "surface", "lego", "soup", "chowder", "clam", "grocery", "pantry", "drill", "mattress", "smartwatch", "filament", "picture frame", "phone", "tablet", "mini pc", "car refrigerator", "portable fridge", "refrigerator", "beverage", "scanner", "soft-sided", "soft cooler", "hard cooler", "can cooler", "ozark", "trail", "insulated", "removable hard liner", "marine cooler", "3d", "printer", "marine cooler", "soft cooler", "hard cooler", "cooler cup", "mini fridge", "wine cooler", "insulated", "liquid death", "coleman", "stanley", "aurora", "dog", "cat", "pet", "puppy", "kitten", "feeder", "food", "dispenser", "bowl", "fish", "bird", "animal", "poultry", "livestock", "hamster", "rabbit", "reptile", "aquarium", "terrarium", "cage", "kennel", "litter", "groom", "leash", "collar", "treat", "molly", "cody"]
 
 def _is_pc_part(title):
@@ -418,32 +420,38 @@ def _deal_category(title):
 
 
 def fetch_deals(sort="newest", cat=None):
-    queries = ["cpu", "gpu", "ssd", "motherboard", "power supply", "cooler", "ram",
-               "monitor", "keyboard", "mouse", "headphones", "case", "network adapter",
-               "wifi", "ups", "sound card", "webcam", "speakers", "external storage",
-               "external drive"]
-    seen = set()
-    deals = []
-    for q in queries:
-        url = "https://slickdeals.net/newsearch.php?src=SearchBarV2&q=" + q.replace(" ", "+") + "&searcharea=deals&searchin=first&rss=1"
-        try:
-            import requests
-            r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=20)
-            r.raise_for_status()
-            root = ET.fromstring(r.content)
-        except Exception:
-            continue
-        for it in root.findall(".//item"):
-            title = (it.findtext("title") or "").strip()
-            link = (it.findtext("link") or "").strip()
-            desc = (it.findtext("description") or "").strip()
-            pub = (it.findtext("pubDate") or "").strip()
-            if not title or link in seen:
+    global _deals_cache
+    import time as _t
+    # Cache the raw fetched deals for 10 minutes to avoid slow repeated scrapes.
+    if not _deals_cache["data"] or (_t.time() - _deals_cache["at"]) > 600:
+        queries = ["cpu", "gpu", "ssd", "motherboard", "power supply", "cooler", "ram",
+                   "monitor", "keyboard", "mouse", "headphones", "case", "network adapter",
+                   "wifi", "ups", "sound card", "webcam", "speakers", "external storage",
+                   "external drive"]
+        seen = set()
+        deals = []
+        for q in queries:
+            url = "https://slickdeals.net/newsearch.php?src=SearchBarV2&q=" + q.replace(" ", "+") + "&searcharea=deals&searchin=first&rss=1"
+            try:
+                import requests
+                r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=5)
+                r.raise_for_status()
+                root = ET.fromstring(r.content)
+            except Exception:
                 continue
-            if not _is_pc_part(title):
-                continue
-            seen.add(link)
-            deals.append({"title": title, "link": link, "desc": desc, "pubDate": pub, "price": _parse_price(title), "cat": _deal_category(title)})
+            for it in root.findall(".//item"):
+                title = (it.findtext("title") or "").strip()
+                link = (it.findtext("link") or "").strip()
+                desc = (it.findtext("description") or "").strip()
+                pub = (it.findtext("pubDate") or "").strip()
+                if not title or link in seen:
+                    continue
+                if not _is_pc_part(title):
+                    continue
+                seen.add(link)
+                deals.append({"title": title, "link": link, "desc": desc, "pubDate": pub, "price": _parse_price(title), "cat": _deal_category(title)})
+        _deals_cache = {"at": _t.time(), "data": deals}
+    deals = list(_deals_cache["data"])
     # sort (parse dates so weekday names don't scramble the order)
     from email.utils import parsedate_to_datetime
     def when(d):
