@@ -267,7 +267,7 @@ def api_data(cat):
             col = f[len("filter_"):]
             val = request.args.get(f)
             if val:
-                rows = [r for r in rows if str(r.get(col)) == val]
+                rows = [r for r in rows if str(r.get(col)).lower() == str(val).lower()]
     sort = request.args.get("sort", "value")
     order = request.args.get("order", "desc")
     reverse = order == "desc"
@@ -292,7 +292,7 @@ def api_meta(cat):
     rows = _rows(cat)
     # distinct values for some fields
     meta = {}
-    for col in ("brand", "storage_type", "efficiency", "module_type", "form_factor", "socket"):
+    for col in ("brand", "storage_type", "efficiency", "module_type", "form_factor", "socket", "panel_type"):
         from collections import Counter
         c = Counter(str(r.get(col)) for r in rows if r.get(col) not in (None, ""))
         # keep values that appear at least 5 times, sorted by frequency then name

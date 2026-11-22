@@ -58,6 +58,13 @@
       </select>
     </div>
     {% endif %}
+    {% if cat == 'monitor' %}
+    <div class="col-md-3">
+      <select id="panelType" class="form-select">
+        <option value="">All panel types</option>
+      </select>
+    </div>
+    {% endif %}
   </div>
 </div>
 <div class="muted small mb-2" id="count"></div>
@@ -238,6 +245,8 @@ async function loadData(){
   if (ff && ff.value) params.set("filter_form_factor", ff.value);
   const st = document.getElementById("storageType");
   if (st && st.value) params.set("filter_storage_type", st.value);
+  const pt = document.getElementById("panelType");
+  if (pt && pt.value) params.set("filter_panel_type", pt.value);
   const res = await fetch("/api/data/"+CAT+"?"+params.toString());
   const j = await res.json();
   allRows = j.rows;
@@ -335,6 +344,8 @@ const _ff = document.getElementById("formFactor");
 if (_ff) _ff.addEventListener("change", ()=>{ page=0; loadData(); });
 const _st = document.getElementById("storageType");
 if (_st) _st.addEventListener("change", ()=>{ page=0; loadData(); });
+const _pt = document.getElementById("panelType");
+if (_pt) _pt.addEventListener("change", ()=>{ page=0; loadData(); });
 document.getElementById("eligibleOnly").addEventListener("change", ()=>{ page=0; loadData(); });
 document.getElementById("sort").addEventListener("change", (e)=>{ sortKey=e.target.value; page=0; loadData(); });
 document.getElementById("order").addEventListener("change", (e)=>{ sortOrder=e.target.value; page=0; loadData(); });
@@ -347,6 +358,8 @@ fetch("/api/meta/"+CAT).then(r=>r.json()).then(j=>{
   (j.brand||[]).forEach(b=>{ const o=document.createElement("option"); o.value=b; o.textContent=b; sel.appendChild(o); });
   const ff = document.getElementById("formFactor");
   if (ff) (j.form_factor||[]).forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; ff.appendChild(o); });
+  const pt = document.getElementById("panelType");
+  if (pt) (j.panel_type||[]).forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; pt.appendChild(o); });
 });
 
 loadData();
