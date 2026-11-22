@@ -101,7 +101,8 @@ def inject_region():
         g._set_vcount = True
     return {"region": reg, "currency_symbol": sym,
             "is_local": has_request_context() and request.remote_addr in ("127.0.0.1", "::1", "localhost"),
-            "visitor_count": _visitor_count(increment=inc)}
+            "visitor_count": _visitor_count(increment=inc),
+            "adsense_client": os.environ.get("ADSENSE_CLIENT")}
 
 CATS = {
     "cpu": {"key": "cpus", "title": "CPUs", "value_col": "value", "value_label": "CPU Value (Mark/$)"},
@@ -418,6 +419,10 @@ def fetch_deals(sort="newest"):
 def deals():
     sort = request.args.get("sort", "newest")
     return render_template("deals.html", deals=fetch_deals(sort), sort=sort, cats=CATS)
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html", cats=CATS)
 
 @app.route("/compat")
 def compat():

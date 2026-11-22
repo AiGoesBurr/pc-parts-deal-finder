@@ -64,6 +64,9 @@
     h2 { font-size: 1.3rem; }
   }
 </style>
+{% if adsense_client %}
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ adsense_client }}" crossorigin="anonymous"></script>
+{% endif %}
 {% block head %}{% endblock %}
 </head>
 <body>
@@ -131,7 +134,22 @@ function toggleTheme(){ const cur = document.body.classList.contains("light") ? 
 </script>
 {% block scripts %}{% endblock %}
 <footer class="text-center muted small py-3 mt-4" style="border-top:1px solid #334155">
-  <div>Visitors: {{ visitor_count }} &middot; <a href="/sources">Sources</a> &middot; <a href="/sitemap.xml">Sitemap</a></div>
+  <div>Visitors: {{ visitor_count }} &middot; <a href="/sources">Sources</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/sitemap.xml">Sitemap</a></div>
 </footer>
+<div id="cookieBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#f1f5f9;padding:12px 16px;z-index:9999;border-top:1px solid #334155;font-size:0.9rem">
+  <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span>This site uses cookies for ads and analytics. <a href="/privacy" style="color:#60a5fa">Learn more</a>.</span>
+    <button class="btn btn-sm btn-primary" onclick="acceptCookies()">Accept</button>
+  </div>
+</div>
+<script>
+(function(){
+  if (!localStorage.getItem("cookieConsent")) {
+    var b = document.getElementById("cookieBanner");
+    if (b) b.style.display = "block";
+  }
+})();
+function acceptCookies(){ localStorage.setItem("cookieConsent","1"); var b=document.getElementById("cookieBanner"); if(b) b.style.display="none"; }
+</script>
 </body>
 </html>
