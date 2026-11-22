@@ -1,4 +1,4 @@
-import csv, glob, json, os, re, sys
+import csv, glob, json, os, re, sys, argparse
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
@@ -36,7 +36,6 @@ def parse_mem(row):
     if price is None:
         return None
 
-    # DDR5 export format: Speed=DDR5-6000, Modules=2 x 16GB, Price / GB=$14.687
     speed_raw = (row.get("Speed") or "").replace("Speed", "").strip()
     m = re.match(r"(DDR\d+)-(\d+)", speed_raw, re.I)
     mtype = m.group(1).upper() if m else (row.get("Type") or row.get("Memory Type") or "").replace("Memory Type", "").strip() or None
@@ -48,11 +47,8 @@ def parse_mem(row):
     modules = int(mm.group(1)) if mm else None
     modsize = float(mm.group(2)) if mm else None
     cap = round(modsize * modules, 2) if (modsize and modules) else None
-    # fallback capacity from other columns
     if cap is None:
         cap = _num(row.get("Capacity", "") or row.get("Total Capacity", ""))
-    if cap is None and modsize and modules:
-        cap = round(modsize * modules, 2)
 
     ppb = _num((row.get("Price / GB") or "").replace("Price / GB", ""))
     if ppb is None and price and cap:
@@ -77,7 +73,7 @@ def parse_mem(row):
         "value": round(1.0 / ppb, 4) if ppb else None,
     }
 
-def main(paths):
+def main(paths, refresh_prices=False):
     motherboards = []
     memories = []
     for path in paths:
@@ -97,9 +93,8 @@ def main(paths):
                 except Exception as e:
                     print("skip row:", e)
     print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories")
-    # merge into all cache files
     for fn in os.listdir(DATA_DIR):
-        if not fn.startswith("cache") or not fn.endswith(".json"):
+        if not (fn.startswith("cache") and fn.endswith(".json")):
             continue
         path = os.path.join(DATA_DIR, fn)
         try:
@@ -111,29 +106,83 @@ def main(paths):
             continue
         existing_mb = data.get("motherboard", [])
         existing_mem = data.get("memory", [])
-        # dedupe by name
-        names_mb = {m.get("name") for m in existing_mb}
+        names_mb = {m.get("name"): i for i, m in enumerate(existing_mb)}
         for m in motherboards:
-            if m["name"] not in names_mb:
+            if m["name"] in names_mb:
+                if refresh_prices:
+                    idx = names_mb[m["name"]]
+                    old = existing_mb[idx]
+                    old["price"] = m["price"]
+                    if m.get("form_factor"):
+                        old["form_factor"] = m["form_factor"]
+                    if m.get("socket"):
+                        old["socket"] = m["socket"]
+                    if m.get("ram_slots"):
+                        old["ram_slots"] = m["ram_slots"]
+                    if m.get("max_ram_gb"):
+                        old["max_ram_gb"] = m["max_ram_gb"]
+                    if old.get("price"):
+                        old["value"] = round(1.0 / old["price"], 4)
+            else:
                 existing_mb.append(m)
-                names_mb.add(m["name"])
-        names_mem = {m.get("name") for m in existing_mem}
+                names_mb[m["name"]] = len(existing_mb) - 1
+        names_mem = {m.get("name"): i for i, m in enumerate(existing_mem)}
         for m in memories:
-            if m["name"] not in names_mem:
+            if m["name"] in names_mem:
+                if refresh_prices:
+                    idx = names_mem[m["name"]]
+                    old = existing_mem[idx]
+                    old["price"] = m["price"]
+                    if m.get("module_type"):
+                        old["module_type"] = m["module_type"]
+                    if m.get("modules"):
+                        old["modules"] = m["modules"]
+                    if m.get("module_size_gb"):
+                        old["module_size_gb"] = m["module_size_gb"]
+                    if m.get("capacity_gb"):
+                        old["capacity_gb"] = m["capacity_gb"]
+                    if m.get("speed_ghz"):
+                        old["speed_ghz"] = m["speed_ghz"]
+                    if m.get("price_per_gb"):
+                        old["price_per_gb"] = m["price_per_gb"]
+                    if old.get("price_per_gb"):
+                        old["value"] = round(1.0 / old["price_per_gb"], 4)
+            else:
                 existing_mem.append(m)
-                names_mem.add(m["name"])
+                names_mem[m["name"]] = len(existing_mem) - 1
         data["motherboard"] = existing_mb
         data["memory"] = existing_mem
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         print("updated", fn)
+    # keep supplemental dataset in sync
+    try:
+        mp = {"motherboard": [], "memory": []}
+        # use us cache if available else first
+        src = os.path.join(DATA_DIR, "cache_us.json")
+        if not os.path.exists(src):
+            src = os.path.join(DATA_DIR, "cache.json")
+        with open(src, encoding="utf-8") as f:
+            d = json.load(f)
+        for m in d.get("motherboard", []):
+            if m.get("source") == "PCPartPicker (manual export)":
+                mp["motherboard"].append(m)
+        for m in d.get("memory", []):
+            if m.get("source") == "PCPartPicker (manual export)":
+                mp["memory"].append(m)
+        out = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "modern_parts.json")
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump(mp, f, ensure_ascii=False, indent=2)
+        print("updated datasets/modern_parts.json")
+    except Exception as e:
+        print("dataset sync failed:", e)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python import_modern_parts.py <csv...>")
-        sys.exit(1)
-    import glob as _glob
+    parser = argparse.ArgumentParser()
+    parser.add_argument("paths", nargs="+")
+    parser.add_argument("--refresh-prices", action="store_true")
+    args = parser.parse_args()
     paths = []
-    for a in sys.argv[1:]:
-        paths.extend(_glob.glob(a))
-    main(paths)
+    for a in args.paths:
+        paths.extend(glob.glob(a))
+    main(paths, refresh_prices=args.refresh_prices)
