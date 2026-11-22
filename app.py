@@ -391,13 +391,15 @@ def _parse_price(title):
     return None
 
 DEAL_CAT_RULES = [
+    ("cooler", ["cpu cooler", "aio cooler", "liquid cooler", "air cooler", "water cooler",
+                "cpu fan", "aio pump", "liquid cooling"]),
     ("cpu", ["ryzen", "core i3", "core i5", "core i7", "core i9", "core ultra", "processor", "cpu"]),
     ("gpu", ["graphics card", "gpu", "geforce", "radeon", "rtx", "gtx", "rx 6", "rx 7", "rx 9"]),
     ("memory", ["ddr4", "ddr5", "ram", "memory"]),
     ("storage", ["ssd", "nvme", "hard drive", "hdd"]),
     ("psu", ["power supply", "psu"]),
     ("motherboard", ["motherboard"]),
-    ("cooler", ["cooler", "aio", "thermal paste", "liquid cooler"]),
+    ("cooler", ["cooler", "thermal paste"]),
     ("case", ["pc case", " pc case", "tower case", "mid tower", "mini tower"]),
     ("monitor", ["monitor"]),
     ("keyboard", ["keyboard"]),
