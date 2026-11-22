@@ -125,6 +125,7 @@ CATS = {
     "speakers": {"key": "speakers", "title": "Computer Speakers", "value_col": "value", "value_label": "Value (1/$)"},
     "external_storage": {"key": "external_storage", "title": "External Storage", "value_col": "value", "value_label": "Value (1/$ per GB)"},
     "router": {"key": "router", "title": "Routers", "value_col": "value", "value_label": "Value (1/$)"},
+    "thermal_paste": {"key": "thermal_paste", "title": "Thermal Paste", "value_col": "value", "value_label": "Value (1/$)"},
 }
 
 def _region():
@@ -392,6 +393,7 @@ def _parse_price(title):
     return None
 
 DEAL_CAT_RULES = [
+    ("thermal_paste", ["thermal paste", "thermal compound", "thermal grease", "thermal putty"]),
     ("cooler", ["cpu cooler", "aio cooler", "liquid cooler", "air cooler", "water cooler",
                 "cpu fan", "aio pump", "liquid cooling"]),
     ("external_storage", ["nas", "network attached storage", "4-bay", "2-bay",
@@ -435,7 +437,7 @@ def _refresh_deals():
     queries = ["cpu", "gpu", "ssd", "motherboard", "power supply", "cooler", "ram",
                "monitor", "keyboard", "mouse", "headphones", "case", "network adapter",
                "wifi", "router", "ups", "sound card", "webcam", "speakers", "external storage",
-               "external drive"]
+               "external drive", "thermal paste"]
     for q in queries:
         url = "https://slickdeals.net/newsearch.php?src=SearchBarV2&q=" + q.replace(" ", "+") + "&searcharea=deals&searchin=first&rss=1"
         try:
@@ -566,7 +568,7 @@ def api_liveprice():
 PLACEHOLDER_LABELS = {"cpu": "CPU", "gpu": "GPU", "memory": "RAM", "storage": "SSD", "psu": "PSU",
                       "motherboard": "BOARD", "case": "CASE", "cooler": "COOLER", "prebuilt": "PC",
                       "monitor": "MONITOR", "keyboard": "KEYS", "mouse": "MOUSE", "headphones": "AUDIO",
-                      "network": "NET", "ups": "UPS", "sound": "SND", "webcam": "CAM", "speakers": "SPK", "external_storage": "EXT", "router": "RTR"}
+                      "network": "NET", "ups": "UPS", "sound": "SND", "webcam": "CAM", "speakers": "SPK", "external_storage": "EXT", "router": "RTR", "thermal_paste": "TP"}
 
 @app.route("/api/image")
 def api_image():

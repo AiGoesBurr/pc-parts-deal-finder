@@ -165,4 +165,6 @@ def is_eligible(cat, r):
         return price >= 10
     if cat == "router":
         return price >= 20
+    if cat == "thermal_paste":
+        return price >= 3
     return True
