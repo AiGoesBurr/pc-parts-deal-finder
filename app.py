@@ -424,6 +424,12 @@ def deals():
 def privacy():
     return render_template("privacy.html", cats=CATS)
 
+@app.route("/ads.txt")
+def ads_txt():
+    pub = os.environ.get("ADSENSE_CLIENT", "ca-pub-2012616805883507").replace("ca-pub-", "pub-")
+    body = f"google.com, {pub}, DIRECT, f08c47fec0942fa0\n"
+    return Response(body, mimetype="text/plain")
+
 @app.route("/compat")
 def compat():
     return render_template("compat.html", cats=CATS)
