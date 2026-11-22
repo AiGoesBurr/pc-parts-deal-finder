@@ -6,7 +6,7 @@ REGION_CURRENCY = {"us":"USD","uk":"GBP","ca":"CAD","au":"AUD","de":"EUR","fr":"
 CURRENCY_SYMBOL = {"USD":"$","GBP":chr(163),"CAD":"C$","AUD":"A$","EUR":chr(8364),"INR":chr(8377),"NZD":"NZ$","SEK":"kr"}
 ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
 CACHE_TTL = 10 * 60  # 10 minutes
-DATA_KEYS = ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts","monitor","keyboard","mouse","headphones","network","ups")
+DATA_KEYS = ("cpus","gpus","memory","storage","psu","motherboard","case","cooler","prebuilts","monitor","keyboard","mouse","headphones","network","ups","sound")
 
 _scrape_lock = threading.Lock()
 _scrape_thread = None
@@ -265,7 +265,7 @@ def _do_scrape(region="us"):
             if os.path.exists(mp_path):
                 with open(mp_path, encoding="utf-8") as f:
                     mp = json.load(f)
-                for key in ("motherboard", "memory", "network", "ups"):
+                for key in ("motherboard", "memory", "network", "ups", "sound"):
                     rows = payload.setdefault(key, [])
                     names = {r.get("name") for r in rows if isinstance(r, dict)}
                     for r in (mp.get(key) or []):

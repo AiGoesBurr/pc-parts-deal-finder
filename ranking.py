@@ -155,4 +155,6 @@ def is_eligible(cat, r):
         return price >= 10
     if cat == "ups":
         return price >= 30
+    if cat == "sound":
+        return price >= 10
     return True

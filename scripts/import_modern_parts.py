@@ -93,6 +93,35 @@ def parse_ups(row):
         "value": round((cap_va or cap_w or 0) / price, 4) if price else None,
     }
 
+def parse_sound(row):
+    name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
+    price_raw = row.get("Price", "").replace("Add", "").replace("Out of stock", "").strip()
+    price = _num(price_raw)
+    if price is None:
+        return None
+    channels = (row.get("Channels") or "").replace("Channels", "").strip() or None
+    digital = (row.get("Digital Audio") or "").replace("Digital Audio", "").strip() or None
+    snr = (row.get("SNR") or "").replace("SNR", "").strip() or None
+    sample_rate = (row.get("Sample Rate") or "").replace("Sample Rate", "").strip() or None
+    chipset = (row.get("Chipset") or "").replace("Chipset", "").strip() or None
+    interface = (row.get("Interface") or "").replace("Interface", "").strip() or None
+    return {
+        "category": "sound",
+        "brand": name.split()[0] if name else None,
+        "model": None,
+        "name": name,
+        "price": price,
+        "source": "PCPartPicker (manual export)",
+        "source_url": "https://pcpartpicker.com",
+        "channels": channels,
+        "digital_audio": digital,
+        "snr": snr,
+        "sample_rate": sample_rate,
+        "chipset": chipset,
+        "interface": interface,
+        "value": round(1.0 / price, 4) if price else None,
+    }
+
 def parse_network(row):
     name = re.sub(r"\s*\(\d+\)\s*$", "", row.get("Name", "")).strip()
     price = _num(row.get("Price", "").replace("Add", ""))
@@ -120,6 +149,7 @@ def main(paths, refresh_prices=False):
     memories = []
     networks = []
     upses = []
+    sounds = []
     for path in paths:
         with open(path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -128,9 +158,14 @@ def main(paths, refresh_prices=False):
             is_mem = ("modules" in hl and "speed" in hl) or "memory" in hl or "capacity" in hl or "type" in hl
             is_net = "protocol" in hl and "interface" in hl
             is_ups = "capacity (w)" in hl or "capacity (va)" in hl
+            is_sound = "channels" in hl and "snr" in hl
             for row in reader:
                 try:
-                    if is_ups:
+                    if is_sound:
+                        r = parse_sound(row)
+                        if r:
+                            sounds.append(r)
+                    elif is_ups:
                         r = parse_ups(row)
                         if r:
                             upses.append(r)
@@ -146,7 +181,7 @@ def main(paths, refresh_prices=False):
                         motherboards.append(parse_mb(row))
                 except Exception as e:
                     print("skip row:", e)
-    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters, {len(upses)} UPS units")
+    print(f"Parsed {len(motherboards)} motherboards, {len(memories)} memories, {len(networks)} network adapters, {len(upses)} UPS units, {len(sounds)} sound cards")
     for fn in os.listdir(DATA_DIR):
         if not (fn.startswith("cache") and fn.endswith(".json")):
             continue
@@ -162,6 +197,7 @@ def main(paths, refresh_prices=False):
         existing_mem = data.get("memory", [])
         existing_net = data.get("network", [])
         existing_ups = data.get("ups", [])
+        existing_sound = data.get("sound", [])
         names_mb = {m.get("name"): i for i, m in enumerate(existing_mb)}
         for m in motherboards:
             if m["name"] in names_mb:
@@ -240,16 +276,39 @@ def main(paths, refresh_prices=False):
             else:
                 existing_ups.append(m)
                 names_ups[m["name"]] = len(existing_ups) - 1
+        names_sound = {m.get("name"): i for i, m in enumerate(existing_sound)}
+        for m in sounds:
+            if m["name"] in names_sound:
+                if refresh_prices:
+                    idx = names_sound[m["name"]]
+                    old = existing_sound[idx]
+                    old["price"] = m["price"]
+                    if m.get("channels"):
+                        old["channels"] = m["channels"]
+                    if m.get("snr"):
+                        old["snr"] = m["snr"]
+                    if m.get("sample_rate"):
+                        old["sample_rate"] = m["sample_rate"]
+                    if m.get("interface"):
+                        old["interface"] = m["interface"]
+                    if m.get("chipset"):
+                        old["chipset"] = m["chipset"]
+                    if old.get("price"):
+                        old["value"] = round(1.0 / old["price"], 4)
+            else:
+                existing_sound.append(m)
+                names_sound[m["name"]] = len(existing_sound) - 1
         data["motherboard"] = existing_mb
         data["memory"] = existing_mem
         data["network"] = existing_net
         data["ups"] = existing_ups
+        data["sound"] = existing_sound
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         print("updated", fn)
     # keep supplemental dataset in sync
     try:
-        mp = {"motherboard": [], "memory": [], "network": [], "ups": []}
+        mp = {"motherboard": [], "memory": [], "network": [], "ups": [], "sound": []}
         src = os.path.join(DATA_DIR, "cache_us.json")
         if not os.path.exists(src):
             src = os.path.join(DATA_DIR, "cache.json")
@@ -267,6 +326,9 @@ def main(paths, refresh_prices=False):
         for m in d.get("ups", []):
             if m.get("source") == "PCPartPicker (manual export)":
                 mp["ups"].append(m)
+        for m in d.get("sound", []):
+            if m.get("source") == "PCPartPicker (manual export)":
+                mp["sound"].append(m)
         out = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "modern_parts.json")
         with open(out, "w", encoding="utf-8") as f:
             json.dump(mp, f, ensure_ascii=False, indent=2)

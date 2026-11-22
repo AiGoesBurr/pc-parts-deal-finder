@@ -29758,5 +29758,87 @@
       "capacity_va": 1000,
       "value": 1.5669
     }
+  ],
+  "sound": [
+    {
+      "category": "sound",
+      "brand": "Creative",
+      "model": null,
+      "name": "Creative Labs Sound Blaster AE-9",
+      "price": 399.99,
+      "source": "PCPartPicker (manual export)",
+      "source_url": "https://pcpartpicker.com",
+      "channels": "5.1",
+      "digital_audio": "32-bit",
+      "snr": "129 dB",
+      "sample_rate": "384 kHz",
+      "chipset": "Sound Core3D",
+      "interface": "PCIe x1",
+      "value": 0.0025
+    },
+    {
+      "category": "sound",
+      "brand": "Asus",
+      "model": null,
+      "name": "Asus Xonar SE",
+      "price": 39.99,
+      "source": "PCPartPicker (manual export)",
+      "source_url": "https://pcpartpicker.com",
+      "channels": "5.1",
+      "digital_audio": "24-bit",
+      "snr": "120 dB",
+      "sample_rate": "192 kHz",
+      "chipset": null,
+      "interface": "PCIe x1",
+      "value": 0.025
+    },
+    {
+      "category": "sound",
+      "brand": "Creative",
+      "model": null,
+      "name": "Creative Labs ZXR",
+      "price": 518.88,
+      "source": "PCPartPicker (manual export)",
+      "source_url": "https://pcpartpicker.com",
+      "channels": "5.1",
+      "digital_audio": "24-bit",
+      "snr": "124 dB",
+      "sample_rate": "192 kHz",
+      "chipset": null,
+      "interface": "PCIe x1",
+      "value": 0.0019
+    },
+    {
+      "category": "sound",
+      "brand": "Asus",
+      "model": null,
+      "name": "Asus Xonar AE",
+      "price": 69.99,
+      "source": "PCPartPicker (manual export)",
+      "source_url": "https://pcpartpicker.com",
+      "channels": "7.1",
+      "digital_audio": "24-bit",
+      "snr": "110 dB",
+      "sample_rate": "192 kHz",
+      "chipset": null,
+      "interface": "PCIe x1",
+      "value": 0.0143
+    },
+    {
+      "category": "sound",
+      "brand": "Creative",
+      "model": null,
+      "name": "Creative Labs Sound Blaster Audigy2 ZS",
+      "price": 175.0,
+      "source": "PCPartPicker (manual export)",
+      "source_url": "https://pcpartpicker.com",
+      "channels": "5.1",
+      "digital_audio": "24-bit",
+      "snr": null,
+      "sample_rate": "192 kHz",
+      "chipset": "Audigy2",
+      "interface": "PCI",
+      "value": 0.0057
+    }
   ]
 }
