@@ -5,7 +5,7 @@ from flask import Flask, g, render_template, request, jsonify, Response, redirec
 
 from cache import get_data, cache_info, get_price_history, is_scraping, REGION_CURRENCY
 from images import find_photo
-from ranking import is_eligible
+from ranking import is_eligible, board_ram_type, cpu_socket
 from autobuild import build_within_budget
 
 app = Flask(__name__)
@@ -516,6 +516,135 @@ def compat():
 def watchlist():
     return render_template("watchlist.html", cats=CATS)
 
+def _part_spec(cat, r):
+    """Short human-readable specs for leaderboard rows."""
+    def add(v):
+        if v not in (None, "", 0):
+            bits.append(str(v))
+    bits = []
+    name = r.get("name") or ""
+    if cat == "cpu":
+        m = _re.search(r"Ryzen [3579] (\d)(\d{3})", name, _re.I)
+        if m:
+            add("Ryzen " + m.group(1) + "000")
+        else:
+            m = _re.search(r"Core (?:Ultra )?[579] (\d{3})", name, _re.I)
+            if m:
+                add("Core Ultra " + m.group(1)[0] + "00")
+            else:
+                m = _re.search(r"Core i[3579]-(\d{4,5})", name, _re.I)
+                if m:
+                    d = m.group(1)
+                    add((d[:2] if len(d) == 5 else d[0]) + "th gen")
+        add(r.get("socket"))
+        if r.get("cores"):
+            add(str(r["cores"]) + "C/" + str(r.get("threads") or "?") + "T")
+        if r.get("tdp"):
+            add(str(r["tdp"]) + "W")
+    elif cat == "gpu":
+        m = _re.search(r"(RTX|GTX)\s*(\d{2})\d{2}", name, _re.I)
+        if m:
+            add(m.group(1).upper() + " " + m.group(2) + " series")
+        m = _re.search(r"RX\s*(\d)\d{3}", name, _re.I)
+        if m:
+            add("RX " + m.group(1) + "000 series")
+        if r.get("vram_gb"):
+            add(str(r["vram_gb"]) + "GB VRAM")
+        if r.get("length"):
+            add(str(r["length"]) + "mm")
+    elif cat == "motherboard":
+        add(r.get("socket"))
+        add(board_ram_type(r))
+        add(r.get("form_factor"))
+        if r.get("ram_slots"):
+            add(str(r["ram_slots"]) + " slots")
+        if r.get("max_ram_gb"):
+            add("max " + str(r["max_ram_gb"]) + "GB")
+    elif cat == "memory":
+        add(r.get("module_type"))
+        if r.get("capacity_gb"):
+            add(str(r["capacity_gb"]) + "GB")
+        if r.get("speed_ghz"):
+            add(str(r["speed_ghz"]) + "GHz")
+        if r.get("cas_timing"):
+            add("CL" + str(r["cas_timing"]))
+    elif cat == "storage":
+        add(r.get("storage_type"))
+        if r.get("capacity_gb"):
+            add(str(r["capacity_gb"]) + "GB")
+        add(r.get("interface"))
+    elif cat == "psu":
+        if r.get("wattage"):
+            add(str(r["wattage"]) + "W")
+        add(r.get("efficiency"))
+        add(r.get("modular"))
+    elif cat == "case":
+        add(r.get("form_factor"))
+        add(r.get("color"))
+    elif cat == "cooler":
+        if r.get("radiator_size"):
+            add(str(r["radiator_size"]) + "mm")
+        if r.get("decibels"):
+            add(str(r["decibels"]) + "dB")
+    elif cat == "monitor":
+        if r.get("size"):
+            add(str(r["size"]) + '"')
+        add(r.get("resolution"))
+        if r.get("refresh_rate"):
+            add(str(r["refresh_rate"]) + "Hz")
+        add(r.get("panel_type"))
+    elif cat == "keyboard":
+        add(r.get("style"))
+        add(r.get("switches"))
+        add(r.get("connection"))
+    elif cat == "mouse":
+        add(r.get("tracking"))
+        add(r.get("connection"))
+        if r.get("max_dpi"):
+            add(str(r["max_dpi"]) + " DPI")
+    elif cat == "headphones":
+        add(r.get("form_factor"))
+        add("Wireless" if r.get("is_wireless") else "Wired")
+    elif cat == "network":
+        add(r.get("protocol"))
+        add(r.get("interface"))
+    elif cat == "router":
+        add(r.get("wireless_standard"))
+        add(r.get("bands"))
+        add(r.get("speed"))
+        add(r.get("ports"))
+    elif cat == "ups":
+        if r.get("capacity_va"):
+            add(str(r["capacity_va"]) + "VA")
+        if r.get("capacity_w"):
+            add(str(r["capacity_w"]) + "W")
+    elif cat == "sound":
+        add(r.get("channels"))
+        add(r.get("snr"))
+        add(r.get("sample_rate"))
+        add(r.get("interface"))
+    elif cat == "webcam":
+        add(r.get("resolution"))
+        add(r.get("connection"))
+    elif cat == "speakers":
+        add(r.get("configuration"))
+        add(r.get("total_wattage"))
+        add(r.get("frequency_response"))
+    elif cat == "external_storage":
+        add(r.get("type"))
+        add(r.get("interface"))
+        if r.get("capacity_gb"):
+            add(str(r["capacity_gb"]) + "GB")
+    elif cat == "surge_protector":
+        if r.get("outlets"):
+            add(str(r["outlets"]) + " outlets")
+        if r.get("joule_rating"):
+            add(str(r["joule_rating"]) + "J")
+    elif cat == "thermal_paste":
+        add(r.get("brand"))
+    return " · ".join(bits) if bits else "—"
+
+
 @app.route("/leaderboard")
 def leaderboard():
     cache = get_data(region=_region())
@@ -524,7 +653,7 @@ def leaderboard():
         for cat, meta in CATS.items():
             rows = [r for r in (cache.get(meta["key"], []) or []) if is_eligible(cat, r) and r.get("value")]
             rows.sort(key=lambda r: r.get("value") or 0, reverse=True)
-            boards[cat] = (meta, rows[:15])
+            boards[cat] = (meta, [dict(r, _spec=_part_spec(cat, r)) for r in rows[:15]])
     return render_template("leaderboard.html", boards=boards, cats=CATS)
 
 @app.route("/savedbuilds")
