@@ -17,11 +17,13 @@
 <script>
 const cache = {};
 const REGION = "{{ region }}";
-async function loadCat(cat){ if(cache[cat]) return cache[cat]; try { const r=await fetch("/api/data/"+cat+"?sort=price&order=asc&limit=1500&region="+encodeURIComponent(REGION)); const j=await r.json(); cache[cat]=j.rows||[]; } catch(e){ cache[cat]=[]; } return cache[cat]; }
+async function loadCat(cat){ if(cache[cat]) return cache[cat]; try { const r=await fetch("/api/data/"+cat+"?sort=value&order=desc&limit=1500&eligible=1&region="+encodeURIComponent(REGION)); const j=await r.json(); cache[cat]=j.rows||[]; } catch(e){ cache[cat]=[]; } return cache[cat]; }
 function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function opt(rows, placeholder){ return `<option value="">${esc(placeholder)}</option>` + rows.map(r=>`<option value="${esc(r.name)}">${esc(r.name)}</option>`).join(""); }
 async function init(){
-  const cpu=await loadCat("cpu"), mb=await loadCat("motherboard"), ram=await loadCat("memory"), gpu=await loadCat("gpu"), psu=await loadCat("psu");
+  const [cpu, mb, ram, gpu, psu] = await Promise.all([
+    loadCat("cpu"), loadCat("motherboard"), loadCat("memory"), loadCat("gpu"), loadCat("psu")
+  ]);
   document.getElementById("sel_cpu").innerHTML = opt(cpu, "-- CPU --");
   document.getElementById("sel_mb").innerHTML = opt(mb, "-- Motherboard --");
   document.getElementById("sel_ram").innerHTML = opt(ram, "-- RAM --");
@@ -29,6 +31,14 @@ async function init(){
   document.getElementById("sel_psu").innerHTML = opt(psu, "-- PSU --");
 }
 function find(cat,name){ return (cache[cat]||[]).find(r=>r.name===name); }
+function gpuWatts(score){
+  const s = score || 0;
+  if (s <= 0) return 250;
+  for (const [limit, watts] of [[6000,120],[12000,180],[18000,230],[25000,290],[30000,340]]) {
+    if (s < limit) return watts;
+  }
+  return 450;
+}
 function check(){
   const cpu=find("cpu", document.getElementById("sel_cpu").value);
   const mb=find("motherboard", document.getElementById("sel_mb").value);
@@ -49,17 +59,17 @@ function check(){
     // type check: motherboard doesn't store ram type; check module_type present
     ok.push("RAM type: "+ram.module_type+". Verify motherboard supports "+ram.module_type+".");
   }
-  if (psu){
-    let load = 100;
-    if (cpu && cpu.tdp) load += cpu.tdp;
-    if (gpu && gpu.tdp) load += gpu.tdp; // gpu may not have tdp
-    if (psu.wattage && psu.wattage >= load) ok.push("PSU "+psu.wattage+"W covers estimated load "+load+"W.");
+  if (psu && (cpu || gpu)){
+    let load = 150;
+    load += cpu ? (cpu.tdp || 105) : 0;
+    if (gpu) load += gpuWatts(gpu.score);
+    if (psu.wattage && psu.wattage >= load) ok.push("PSU "+psu.wattage+"W covers estimated load "+load+"W. Leave extra headroom for transient spikes.");
     else if (psu.wattage) issues.push("PSU "+psu.wattage+"W may be insufficient for estimated load "+load+"W.");
   }
   let html = "";
   if (issues.length) html += "<div class='alert alert-danger'><ul>"+issues.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul></div>";
   if (ok.length) html += "<div class='alert alert-success'><ul>"+ok.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul></div>";
-  if (!cpu && !mb && !ram && !psu) html = "<p class='muted'>Select parts to check.</p>";
+  if (!cpu && !mb && !ram && !psu && !gpu) html = "<p class='muted'>Select parts to check.</p>";
   document.getElementById("result").innerHTML = html;
 }
 init();

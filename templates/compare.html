@@ -28,7 +28,11 @@
 const CAT = "{{ cat }}";
 const REGION = "{{ region }}";
 const SEL_KEY = "compare_"+CAT;
-const selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]"));
+function normalizeSelectionName(n){
+  if (typeof n !== "string" || !/%[0-9A-Fa-f]{2}/.test(n)) return n;
+  try { return decodeURIComponent(n); } catch (e) { return n; }
+}
+const selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]").map(normalizeSelectionName));
 const FIELDS = {
   cpu: ["name","brand","cores","threads","mark","rank","price","value"],
   gpu: ["name","brand","score","price","value"],

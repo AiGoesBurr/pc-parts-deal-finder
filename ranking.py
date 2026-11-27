@@ -22,7 +22,8 @@ GPU_RE = re.compile(
     re.I,
 )
 GPU_EXCLUDE_RE = re.compile(
-    r"Laptop|Mobile|Max-Q|Notebook|Mobility|Quadro|FirePro|FireGL|Radeon Pro|RTX PRO|Tesla|GRID|Embedded|Vega|Iris|UHD",
+    r"Laptop|Mobile|Max-Q|Notebook|Mobility|Quadro|FirePro|FireGL|Radeon Pro|RTX PRO|Tesla|GRID|Embedded|Vega|Iris|UHD|"
+    r"\b\d{4}M\b",
     re.I,
 )
 PSU_GOOD_RE = re.compile(

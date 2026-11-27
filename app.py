@@ -437,12 +437,16 @@ def api_meta(cat):
     return jsonify(meta)
 
 def _authorized(request):
-    """Fail closed: require the configured token, allowing only local requests when none is set."""
+    """Fail closed: require the configured token, or explicit local opt-in."""
     expected = os.environ.get("SCRAPE_TOKEN")
-    if not expected:
-        return request.remote_addr in ("127.0.0.1", "::1", "localhost")
-    token = request.headers.get("X-Scrape-Token") or request.form.get("token")
-    return token == expected
+    if expected:
+        token = request.headers.get("X-Scrape-Token") or request.form.get("token")
+        return token == expected
+    # No token configured. Never trust a proxied 127.0.0.1 address on a public
+    # host; require an explicit local opt-in instead.
+    if os.environ.get("ENABLE_REFRESH") != "1":
+        return False
+    return request.remote_addr in ("127.0.0.1", "::1", "localhost")
 
 @app.route("/api/scrape", methods=["POST"])
 def api_scrape():
@@ -666,6 +670,8 @@ def _refresh_deals():
             desc = (it.findtext("description") or "").strip()
             pub = (it.findtext("pubDate") or "").strip()
             if not title or not link:
+                continue
+            if not (link.startswith("http://") or link.startswith("https://")):
                 continue
             if not _is_pc_part(title):
                 continue

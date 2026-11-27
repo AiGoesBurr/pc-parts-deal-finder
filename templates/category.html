@@ -18,7 +18,7 @@ let regionTries = 0;
 async function pollRegion(){
   regionTries++;
   try {
-    const r = await fetch("/api/data/{{ cat }}?region={{ region }}&limit=1&eligible=1");
+    const r = await fetch("/api/data/cpu?region={{ region }}&limit=1");
     const j = await r.json();
     if ((j.total || 0) > 0) { location.reload(); return; }
   } catch (e) {}
@@ -129,7 +129,11 @@ let allRows = [];
 let totalCount = 0;
 let page = 0;
 const SEL_KEY = "compare_"+CAT;
-let selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]"));
+function normalizeSelectionName(n){
+  if (typeof n !== "string" || !/%[0-9A-Fa-f]{2}/.test(n)) return n;
+  try { return decodeURIComponent(n); } catch (e) { return n; }
+}
+let selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]").map(normalizeSelectionName));
 function toggleSel(name, on){ if(on) selected.add(name); else selected.delete(name); localStorage.setItem(SEL_KEY, JSON.stringify([...selected])); }
 function updateCompareBtn(){ const b=document.getElementById("compareBtn"); if(!b) return; b.textContent = "Compare ("+selected.size+")"; b.disabled = selected.size < 2; }
 function getWatchlist(){ return JSON.parse(localStorage.getItem("watchlist")||"[]"); }
@@ -255,12 +259,12 @@ function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace
 function jsArg(s){ return encodeURIComponent(s).replace(/'/g,"%27"); }
 function fmt(v, decimals){
   if (v === null || v === undefined) return "";
-  if (typeof v === "object") return (v.default ?? v.max ?? JSON.stringify(v));
+  if (typeof v === "object") return esc(v.default ?? v.max ?? JSON.stringify(v));
   if (typeof v === "number") {
     const d = decimals !== undefined ? decimals : (Math.abs(v - Math.round(v)) < 1e-9 ? 0 : 2);
     return v.toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d});
   }
-  return v;
+  return esc(v);
 }
 
 async function loadData(){
@@ -335,7 +339,7 @@ function render(){
   }).join("") + "</tr>";
   const sa = document.getElementById("selectAll");
   if (sa) sa.onchange = (e) => {
-    document.querySelectorAll(".rowSel").forEach(cb => { cb.checked = e.target.checked; toggleSel(cb.dataset.name, cb.checked); });
+    document.querySelectorAll(".rowSel").forEach(cb => { cb.checked = e.target.checked; toggleSel(decodeURIComponent(cb.dataset.name), cb.checked); });
     updateCompareBtn();
   };
   const tbody = document.getElementById("tbody");

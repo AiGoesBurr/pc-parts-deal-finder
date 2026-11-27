@@ -55,29 +55,36 @@ _mem_cache = {}
 def load_cache(region="us"):
     region = _valid_region(region)
     p = _cache_path(region)
-    p_gz = p + ".gz"
-    # Prefer whichever snapshot is newer. A local JSON scrape can be older than
-    # the gzipped snapshot committed by CI, and silently using it shows stale
-    # prices on the site.
-    candidates = [(mt, path, False) for path in (p,) if os.path.exists(path) for mt in (os.path.getmtime(path),)]
-    candidates += [(mt, path, True) for path in (p_gz,) if os.path.exists(path) for mt in (os.path.getmtime(path),)]
+    candidates = []
+    for path, is_gz in ((p, False), (p + ".gz", True)):
+        try:
+            if os.path.exists(path):
+                candidates.append((os.path.getmtime(path), path, is_gz))
+        except OSError:
+            continue
     if not candidates:
         return None
-    mtime, path, is_gz = max(candidates, key=lambda item: item[0])
-    try:
+    # Prefer the newest snapshot. A local JSON scrape can be older than the
+    # gzipped snapshot committed by CI, and silently using it shows stale
+    # prices. If the newest file is unreadable, fall back to the other one.
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    for mtime, path, is_gz in candidates:
         entry = _mem_cache.get(region)
-        if entry and entry[0] == mtime:
+        if entry and entry[0] == mtime and entry[2] == path:
             return entry[1]
-        if is_gz:
-            with gzip.open(path, "rt", encoding="utf-8") as f:
-                data = json.load(f)
-        else:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        _mem_cache[region] = (mtime, data)
-        return data
-    except Exception:
-        return None
+        try:
+            if is_gz:
+                with gzip.open(path, "rt", encoding="utf-8") as f:
+                    data = json.load(f)
+            else:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            _mem_cache[region] = (mtime, data, path)
+            return data
+        except Exception as exc:
+            logger.warning("could not load cache %s: %s", path, exc)
+            continue
+    return None
 
 def save_cache(payload, region="us"):
     region = _valid_region(region)

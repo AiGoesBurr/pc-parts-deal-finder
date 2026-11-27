@@ -54,3 +54,11 @@ def test_deal_classifier_and_dedupe():
     assert dell_a and dell_a == dell_b
     assert app_module._deal_model_key("GeForce RTX 5070", 599.99) is None
     assert app_module._deal_model_key("Radeon RX 9070", 599.99) is None
+
+
+def test_refresh_auth_fails_closed(monkeypatch):
+    monkeypatch.delenv("SCRAPE_TOKEN", raising=False)
+    monkeypatch.delenv("ENABLE_REFRESH", raising=False)
+    c = app.test_client()
+    assert c.post("/refresh").status_code == 403
+    assert c.post("/api/scrape").status_code == 403

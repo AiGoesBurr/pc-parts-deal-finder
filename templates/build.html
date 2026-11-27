@@ -125,6 +125,14 @@ function normSocket(s){
   s = String(s).replace(/^Socket\s+/i, "").trim();
   return /^\d{4}/.test(s) ? "LGA" + s : s;
 }
+function gpuWatts(score){
+  const s = score || 0;
+  if (s <= 0) return 250;
+  for (const [limit, watts] of [[6000,120],[12000,180],[18000,230],[25000,290],[30000,340]]) {
+    if (s < limit) return watts;
+  }
+  return 450;
+}
 async function checkCompat(){
   const cpu = (cache.cpu||[]).find(r=>r.name===document.getElementById("sel_cpu").value);
   const mb = (cache.motherboard||[]).find(r=>r.name===document.getElementById("sel_motherboard").value);
@@ -142,16 +150,17 @@ async function checkCompat(){
     if (mb.max_ram_gb && ram.capacity_gb && mb.max_ram_gb >= ram.capacity_gb) ok.push("RAM fits motherboard max capacity.");
     else if (mb.max_ram_gb && ram.capacity_gb) issues.push("RAM capacity exceeds motherboard max.");
   }
-  if (psu){
-    let load = 100;
-    if (cpu && cpu.tdp) load += cpu.tdp;
-    if (psu.wattage && psu.wattage >= load) ok.push("PSU "+psu.wattage+"W covers est. load "+load+"W.");
+  if (psu && (cpu || gpu)){
+    let load = 150;
+    load += cpu ? (cpu.tdp || 105) : 0;
+    if (gpu) load += gpuWatts(gpu.score);
+    if (psu.wattage && psu.wattage >= load) ok.push("PSU "+psu.wattage+"W covers est. load "+load+"W. Leave headroom for transient spikes.");
     else if (psu.wattage) issues.push("PSU "+psu.wattage+"W may be insufficient for est. load "+load+"W.");
   }
   let html = "";
   if (issues.length) html += "<div class='text-danger'><ul>"+issues.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul></div>";
   if (ok.length) html += "<div class='text-success'><ul>"+ok.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul></div>";
-  if (!cpu && !mb && !ram && !psu) html = "Select parts to check.";
+  if (!cpu && !mb && !ram && !psu && !gpu) html = "Select parts to check.";
   document.getElementById("compatResult").innerHTML = html;
 }
 function applyBuildNotice(html){

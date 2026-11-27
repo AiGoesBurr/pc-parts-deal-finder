@@ -20,6 +20,7 @@ def test_is_current_gpu():
     assert ranking.is_current_gpu("Radeon RX 9070 XT")
     assert ranking.is_current_gpu("Intel Arc B580")
     assert not ranking.is_current_gpu("Radeon RX 6600")
+    assert not ranking.is_current_gpu("Radeon RX 7600M XT")
     assert not ranking.is_current_gpu("GeForce RTX 3050 A Laptop GPU")
     assert not ranking.is_current_gpu("Radeon RX 580")
 
