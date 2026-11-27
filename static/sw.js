@@ -1,4 +1,4 @@
-const CACHE = "pcparts-static-v1";
+const CACHE = "pcparts-static-v2";
 const ASSETS = ["/", "/static/manifest.json", "/static/icons/icon-192.png", "/static/icons/icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).catch(()=>{}));

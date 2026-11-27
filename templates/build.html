@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Build Calculator - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<h2>PC build cost calculator</h2>
+<h1 class="h2">PC build cost calculator</h1>
 <p class="muted small">Pick one part from each category to estimate total build cost, or let auto-build choose parts that fit together for your budget.</p>
 <div id="buildNotice" class="card p-3 mb-3 small" style="display:none"></div>
 <div class="mb-3">
@@ -10,15 +10,15 @@
   <button class="btn btn-sm btn-success ms-2" onclick="exportBuild()">Export build</button>
   <button class="btn btn-sm btn-warning ms-2" onclick="saveBuild()">Save build</button>
   <button class="btn btn-sm btn-info ms-2" onclick="shareBuild()">Share build</button>
-  <input id="buildName" class="form-control form-control-sm d-inline-block ms-2" style="width:200px" placeholder="Build name">
+  <input id="buildName" class="form-control form-control-sm d-inline-block ms-2" style="width:200px" placeholder="Build name" aria-label="Build name">
 </div>
 <div class="mb-3 d-flex align-items-center gap-2">
-  <label class="small mb-0">Budget $</label>
+  <label class="small mb-0" for="budget">Budget $</label>
   <input id="budget" class="form-control form-control-sm" style="width:120px" type="number" step="1" placeholder="1000">
   <button class="btn btn-sm btn-primary" onclick="autoBuildBudget()">Auto-build within budget</button>
 </div>
 <div id="exportBox" class="card p-3 mt-3" style="display:none">
-  <h6>Build parts list</h6>
+  <h2 class="h6">Build parts list</h2>
   <textarea id="exportText" class="form-control" rows="10" readonly></textarea>
   <div class="mt-2">
     <button class="btn btn-sm btn-primary" onclick="copyExport()">Copy to clipboard</button>
@@ -29,44 +29,53 @@
 <div id="buildMsg" class="alert alert-info small" style="display:none"></div>
 <div id="buildForm" class="row g-3"></div>
 <div class="card p-3 mt-3">
-  <h5>Total: <span id="curSym">{{ currency_symbol }}</span><span id="total">0.00</span></h5>
+  <h2 class="h5">Total: <span id="curSym">{{ currency_symbol }}</span><span id="total">0.00</span></h2>
   <div id="breakdown" class="muted small"></div>
 </div>
 <div class="card p-3 mt-3">
-  <h6>Compatibility</h6>
+  <h2 class="h6">Compatibility</h2>
   <div id="compatResult" class="muted small">Select parts to check.</div>
 </div>
 {% endblock %}
 {% block scripts %}
 <script>
 const CATS = {{ cats|tojson }};
+const REGION = "{{ region }}";
 const CAT_ORDER = ["cpu","gpu","memory","storage","psu","motherboard","case","cooler"];
 let cache = {};
 async function loadCat(cat){
   if (cache[cat]) return cache[cat];
-  const r = await fetch("/api/data/"+cat+"?sort=value&order=desc&limit=100000&eligible=1");
-  const j = await r.json();
-  cache[cat] = j.rows;
-  return j.rows;
+  try {
+    const r = await fetch("/api/data/"+cat+"?sort=value&order=desc&limit=1500&eligible=1&region="+encodeURIComponent(REGION));
+    const j = await r.json();
+    cache[cat] = j.rows || [];
+  } catch (e) {
+    cache[cat] = [];
+  }
+  return cache[cat];
 }
 function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
-function fmt(v){ if(v===null||v===undefined) return ""; if(typeof v==="number") return Math.round(v*100)/100; return esc(v); }
+function fmt(v){ if(v===null||v===undefined) return ""; if(typeof v==="number") return v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); return esc(v); }
 function showMsg(m){ const e=document.getElementById("buildMsg"); e.style.display="block"; e.textContent=m; }
 async function renderForm(){
   const container = document.getElementById("buildForm");
+  container.innerHTML = '<div class="muted small">Loading compatible parts...</div>';
+  // Load categories in parallel. The old serial loop made the form look
+  // broken on slower connections because only the first two fields appeared.
+  const data = await Promise.all(CAT_ORDER.map(loadCat));
   container.innerHTML = "";
-  for (const cat of CAT_ORDER){
-    const rows = await loadCat(cat);
+  CAT_ORDER.forEach((cat, index) => {
+    const rows = data[index] || [];
     const col = document.createElement("div");
     col.className = "col-md-6";
     const label = CATS[cat].title;
-    col.innerHTML = `<label class="form-label small">${label}</label>
+    col.innerHTML = `<label class="form-label small" for="sel_${cat}">${label}</label>
       <select class="form-select form-select-sm" id="sel_${cat}" onchange="updateTotal()">
         <option value="">-- none --</option>
         ${rows.map(r=>`<option value="${esc(r.name)}" data-price="${r.price||0}">${esc(r.name)} — ${CURRENCY}${fmt(r.price)}</option>`).join("")}
       </select>`;
     container.appendChild(col);
-  }
+  });
   updateTotal();
   const params = new URLSearchParams(location.search);
   const load = params.get("load");
@@ -107,7 +116,7 @@ function updateTotal(){
     const price = parseFloat(opt?.dataset?.price || 0);
     if (price) { total += price; bd.push(CATS[cat].title + ": " + CURRENCY + price.toFixed(2)); }
   }
-  document.getElementById("total").textContent = total.toFixed(2);
+  document.getElementById("total").textContent = total.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   document.getElementById("breakdown").innerHTML = bd.join("<br>");
   checkCompat();
 }
@@ -154,7 +163,7 @@ async function applyAutoBuild(budget){
   applyBuildNotice("Building a compatible list...");
   let j;
   try {
-    const r = await fetch("/api/autobuild?budget=" + encodeURIComponent(budget));
+    const r = await fetch("/api/autobuild?budget=" + encodeURIComponent(budget) + "&region=" + encodeURIComponent(REGION));
     j = await r.json();
   } catch (e) {
     applyBuildNotice("Could not build a list right now. Try again.");

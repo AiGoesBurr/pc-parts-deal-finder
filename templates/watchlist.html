@@ -1,36 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Watchlist - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<h2>Watchlist & price alerts</h2>
-<p class="muted small">Starred parts. Set a target price; items at or below target are highlighted.</p>
+<h1 class="h2">Watchlist</h1>
+<p class="muted small">Saved in this browser only. Add a target price and this page will highlight when a part is at or below it. Target hits are checked when you open this page &mdash; email alerts are not available yet.</p>
 <div id="msg" class="muted"></div>
 <div class="table-responsive">
   <table class="table table-sm" id="wtable">
-    <thead><tr><th>Name</th><th>Category</th><th>Current</th><th>Target</th><th>Δ%</th><th></th></tr></thead>
+    <thead><tr><th scope="col">Name</th><th scope="col">Category</th><th scope="col">Current estimate</th><th scope="col">Target</th><th scope="col">Change</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
     <tbody id="wbody"></tbody>
   </table>
 </div>
+<p class="small"><a href="/category/cpu">Browse CPUs</a> or <a href="/category/gpu">GPUs</a> to star parts. Your watchlist stays in this browser and is not uploaded.</p>
 {% endblock %}
 {% block scripts %}
 <script>
 const cats = {{ cats|tojson }};
+const REGION = "{{ region }}";
 function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function jsArg(s){ return encodeURIComponent(s).replace(/'/g,"%27"); }
-// request notification permission
-if ("Notification" in window && Notification.permission === "default") {
-  Notification.requestPermission();
-}
-function notify(title, body){
-  if ("Notification" in window && Notification.permission === "granted") {
-    new Notification(title, { body });
-  }
-}
+function money(v){ if (v===null||v===undefined) return "-"; return CURRENCY + Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
 const watchlist = JSON.parse(localStorage.getItem("watchlist")||"[]");
 const cache = {};
-async function loadCat(cat){ if(cache[cat]) return cache[cat]; try { const r=await fetch("/api/data/"+cat+"?limit=100000"); if(!r.ok) return []; const j=await r.json(); cache[cat]=j.rows||[]; return cache[cat]; } catch(e){ return []; } }
+async function loadCat(cat){ if(cache[cat]) return cache[cat]; try { const r=await fetch("/api/data/"+cat+"?limit=100000&region="+encodeURIComponent(REGION)); if(!r.ok) return []; const j=await r.json(); cache[cat]=j.rows||[]; return cache[cat]; } catch(e){ return []; } }
 async function render(){
   const tbody = document.getElementById("wbody");
-  if (!watchlist.length){ document.getElementById("msg").textContent = "No starred parts yet. Star items on category pages."; return; }
+  if (!watchlist.length){ document.getElementById("msg").innerHTML = 'No starred parts yet. <a href="/category/cpu">Star a part on any category page</a> to track it here.'; return; }
   const rows = [];
   for (const w of watchlist){
     const data = await loadCat(w.cat);
@@ -40,16 +34,15 @@ async function render(){
   tbody.innerHTML = rows.map(({w,item})=>{
     const price = item ? item.price : null;
     const change = item ? item.price_change_pct : null;
-    const alert = (w.threshold && price !== null && price <= w.threshold) ? "table-warning" : "";
-    if (alert) notify("Price alert: "+w.name, "Now "+CURRENCY+price+" (target "+CURRENCY+w.threshold+")");
-    const changeStr = change===null||change===undefined ? "-" : (change>0?"+":"")+change+"%";
+    const alert = (w.threshold && price !== null && price !== undefined && price <= w.threshold) ? "table-warning" : "";
+    const changeStr = change===null||change===undefined ? "-" : (change>0?"+":"")+Number(change).toLocaleString(undefined,{maximumFractionDigits:2})+"%";
     return `<tr class="${alert}">
       <td class="small">${esc(w.name)}</td>
-      <td>${(cats[w.cat]||{}).title||w.cat}</td>
-      <td>${price!==null? CURRENCY+price : "-"}</td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm" style="width:90px" value="${w.threshold||""}" onchange="setThreshold('${w.cat}','${jsArg(w.name)}',this.value)"></td>
+      <td>${esc((cats[w.cat]||{}).title||w.cat)}</td>
+      <td>${money(price)}</td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm" style="width:100px" value="${w.threshold||""}" aria-label="Target price for ${esc(w.name)}" onchange="setThreshold('${w.cat}','${jsArg(w.name)}',this.value)"></td>
       <td>${changeStr}</td>
-      <td><button class="btn btn-sm btn-outline-danger" onclick="removeWatch('${w.cat}','${jsArg(w.name)}')">Remove</button></td>
+      <td><button class="btn btn-sm btn-outline-danger" aria-label="Remove ${esc(w.name)} from watchlist" onclick="removeWatch('${w.cat}','${jsArg(w.name)}')">Remove</button></td>
     </tr>`;
   }).join("");
 }

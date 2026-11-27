@@ -1,66 +1,152 @@
-import csv, gzip, io, os, logging, json as _json2, threading as _threading
+import csv, gzip, io, os, logging, threading as _threading, time as _time, re as _re
 logger = logging.getLogger("pcparts.app")
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from urllib.parse import urlsplit
 from flask import Flask, g, render_template, request, jsonify, Response, redirect, url_for, has_request_context
 
 from cache import get_data, cache_info, get_price_history, is_scraping, REGION_CURRENCY
 from images import find_photo
-from ranking import is_eligible, board_ram_type, cpu_socket
+from ranking import is_eligible, is_quality_psu, is_nvme_storage, board_ram_type, cpu_socket
 from autobuild import build_within_budget
 
 app = Flask(__name__)
 
-VISITOR_FILE = os.environ.get("VISITOR_FILE") or os.path.join(os.path.dirname(__file__), "data", "visitors.json")
-_visitor_lock = _threading.Lock()
-
-
-def _visitor_count(increment=False):
-    # Optional external store (e.g. Upstash Redis) for persistence across
-    # ephemeral deploys. Configure with UPSTASH_REDIS_REST_URL and
-    # UPSTASH_REDIS_REST_TOKEN. Falls back to a local file otherwise.
-    upstash_url = (os.environ.get("UPSTASH_REDIS_REST_URL") or "").rstrip("/")
-    upstash_token = os.environ.get("UPSTASH_REDIS_REST_TOKEN")
-    if upstash_url and upstash_token:
+def _as_datetime(value):
+    """Best-effort conversion of epoch seconds, ISO strings and RSS dates."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
         try:
-            import requests as _rq
-            headers = {"Authorization": f"Bearer {upstash_token}"}
-            if increment:
-                r = _rq.post(upstash_url + "/incr/visitors", headers=headers, timeout=5)
-            else:
-                r = _rq.get(upstash_url + "/get/visitors", headers=headers, timeout=5)
-            r.raise_for_status()
-            val = r.json().get("result")
-            if val is None:
-                return 0
-            return int(val)
-        except Exception:
-            pass  # fall through to local file
-    with _visitor_lock:
-        try:
-            with open(VISITOR_FILE, encoding="utf-8") as f:
-                n = int(_json2.load(f).get("count", 0))
-        except (OSError, ValueError, AttributeError):
-            n = 0
-        if increment:
-            n += 1
-            try:
-                os.makedirs(os.path.dirname(VISITOR_FILE), exist_ok=True)
-                tmp = VISITOR_FILE + ".tmp"
-                with open(tmp, "w", encoding="utf-8") as f:
-                    _json2.dump({"count": n}, f)
-                os.replace(tmp, VISITOR_FILE)
-            except OSError:
-                pass
-        return n
-
-@app.after_request
-def _set_visitor_cookie(response):
+            return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    text = str(value).strip()
     try:
-        if getattr(g, "_set_vcount", False):
-            response.set_cookie("vcount", "1", max_age=30*86400, samesite="Lax")
-    except Exception:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except ValueError:
         pass
-    return response
+    try:
+        dt = parsedate_to_datetime(text)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+@app.template_filter("num")
+def num_filter(value, decimals=2):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return value if value not in (None, "") else ""
+    if abs(number - round(number)) < 1e-9:
+        decimals = 0
+    return f"{number:,.{decimals}f}"
+
+
+@app.template_filter("money")
+def money_filter(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ""
+    symbol = getattr(g, "currency_symbol", None) or "$"
+    return f"{symbol}{num_filter(number, 2)}"
+
+
+@app.template_filter("ago")
+def ago_filter(value):
+    dt = _as_datetime(value)
+    if not dt:
+        return value or ""
+    seconds = max(0, (datetime.now(timezone.utc) - dt).total_seconds())
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        return f"{int(seconds // 60)} min ago"
+    if seconds < 86400:
+        hours = int(seconds // 3600)
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    days = int(seconds // 86400)
+    if days < 30:
+        return f"{days} day{'s' if days != 1 else ''} ago"
+    return dt.strftime("%b %d, %Y")
+
+
+# Retailer search links per region. Only well-known, stable search URLs are
+# listed; Google Shopping fills the gap where a local retailer URL is not
+# guaranteed to be stable. "cls" maps to a Bootstrap button style.
+RETAILERS = {
+    "us": [
+        {"name": "Amazon", "url": "https://www.amazon.com/s?k={q}", "cls": "primary"},
+        {"name": "Newegg", "url": "https://www.newegg.com/p/pl?d={q}", "cls": "success"},
+        {"name": "B&H", "url": "https://www.bhphotovideo.com/c/search?Ntt={q}", "cls": "info"},
+        {"name": "Best Buy", "url": "https://www.bestbuy.com/site/searchpage.jsp?st={q}", "cls": "warning"},
+        {"name": "Micro Center", "url": "https://www.microcenter.com/search/search_results.aspx?Ntt={q}", "cls": "secondary"},
+    ],
+    "uk": [
+        {"name": "Amazon UK", "url": "https://www.amazon.co.uk/s?k={q}", "cls": "primary"},
+        {"name": "eBay UK", "url": "https://www.ebay.co.uk/sch/i.html?_nkw={q}", "cls": "secondary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=uk&hl=en&q={q}", "cls": "light"},
+    ],
+    "ca": [
+        {"name": "Amazon CA", "url": "https://www.amazon.ca/s?k={q}", "cls": "primary"},
+        {"name": "Newegg CA", "url": "https://www.newegg.ca/p/pl?d={q}", "cls": "success"},
+        {"name": "eBay CA", "url": "https://www.ebay.ca/sch/i.html?_nkw={q}", "cls": "secondary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=ca&hl=en&q={q}", "cls": "light"},
+    ],
+    "au": [
+        {"name": "Amazon AU", "url": "https://www.amazon.com.au/s?k={q}", "cls": "primary"},
+        {"name": "eBay AU", "url": "https://www.ebay.com.au/sch/i.html?_nkw={q}", "cls": "secondary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=au&hl=en&q={q}", "cls": "light"},
+    ],
+    "de": [
+        {"name": "Amazon DE", "url": "https://www.amazon.de/s?k={q}", "cls": "primary"},
+        {"name": "eBay DE", "url": "https://www.ebay.de/sch/i.html?_nkw={q}", "cls": "secondary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=de&hl=de&q={q}", "cls": "light"},
+    ],
+    "fr": [
+        {"name": "Amazon FR", "url": "https://www.amazon.fr/s?k={q}", "cls": "primary"},
+        {"name": "eBay FR", "url": "https://www.ebay.fr/sch/i.html?_nkw={q}", "cls": "secondary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=fr&hl=fr&q={q}", "cls": "light"},
+    ],
+    "es": [
+        {"name": "Amazon ES", "url": "https://www.amazon.es/s?k={q}", "cls": "primary"},
+        {"name": "eBay ES", "url": "https://www.ebay.es/sch/i.html?_nkw={q}", "cls": "secondary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=es&hl=es&q={q}", "cls": "light"},
+    ],
+    "it": [
+        {"name": "Amazon IT", "url": "https://www.amazon.it/s?k={q}", "cls": "primary"},
+        {"name": "eBay IT", "url": "https://www.ebay.it/sch/i.html?_nkw={q}", "cls": "secondary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=it&hl=it&q={q}", "cls": "light"},
+    ],
+    "in": [
+        {"name": "Amazon IN", "url": "https://www.amazon.in/s?k={q}", "cls": "primary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=in&hl=en&q={q}", "cls": "light"},
+    ],
+    "nz": [
+        {"name": "Amazon AU", "url": "https://www.amazon.com.au/s?k={q}", "cls": "primary"},
+        {"name": "Mighty Ape", "url": "https://www.mightyape.co.nz/search?q={q}", "cls": "success"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=nz&hl=en&q={q}", "cls": "light"},
+    ],
+    "ie": [
+        {"name": "Amazon IE", "url": "https://www.amazon.ie/s?k={q}", "cls": "primary"},
+        {"name": "eBay IE", "url": "https://www.ebay.ie/sch/i.html?_nkw={q}", "cls": "secondary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=ie&hl=en&q={q}", "cls": "light"},
+    ],
+    "be": [
+        {"name": "Amazon BE", "url": "https://www.amazon.com.be/s?k={q}", "cls": "primary"},
+        {"name": "eBay BE", "url": "https://www.ebay.be/sch/i.html?_nkw={q}", "cls": "secondary"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=be&hl=nl&q={q}", "cls": "light"},
+    ],
+    "se": [
+        {"name": "Amazon SE", "url": "https://www.amazon.se/s?k={q}", "cls": "primary"},
+        {"name": "Komplett SE", "url": "https://www.komplett.se/search?q={q}", "cls": "success"},
+        {"name": "Google Shopping", "url": "https://www.google.com/search?tbm=shop&gl=se&hl=sv&q={q}", "cls": "light"},
+    ],
+}
 
 
 @app.after_request
@@ -86,6 +172,18 @@ def _gzip_response(response):
     response.headers["Vary"] = "Accept-Encoding"
     return response
 
+@app.after_request
+def _persist_region(response):
+    """Remember the chosen region so internal links keep the same market."""
+    try:
+        wanted = request.args.get("region")
+        if wanted in REGION_CURRENCY:
+            response.set_cookie("region", wanted, max_age=365 * 86400, samesite="Lax")
+    except Exception:
+        pass
+    return response
+
+
 @app.context_processor
 def inject_region():
     if has_request_context():
@@ -94,14 +192,30 @@ def inject_region():
         reg = "us"
     cache = get_data(region=reg)
     sym = "$"
+    saved_ts = None
     if cache:
         sym = cache.get("_currency_symbol", "$")
-    inc = not bool(request.cookies.get("vcount"))
-    if inc and has_request_context():
-        g._set_vcount = True
+        saved_ts = cache.get("_saved_at")
+    is_local = has_request_context() and request.remote_addr in ("127.0.0.1", "::1", "localhost")
+    g.currency_symbol = sym
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    available_regions = []
+    for r in REGION_CURRENCY:
+        if (os.path.exists(os.path.join(data_dir, f"cache_{r}.json"))
+                or os.path.exists(os.path.join(data_dir, f"cache_{r}.json.gz"))):
+            available_regions.append(r)
+    age_days = None
+    if saved_ts:
+        age_days = max(0.0, (_time.time() - float(saved_ts)) / 86400)
     return {"region": reg, "currency_symbol": sym,
-            "is_local": has_request_context() and request.remote_addr in ("127.0.0.1", "::1", "localhost"),
-            "visitor_count": _visitor_count(increment=inc),
+            "is_local": is_local,
+            "show_refresh": os.environ.get("ENABLE_REFRESH") == "1",
+            "retailers": RETAILERS.get(reg, RETAILERS["us"]),
+            "available_regions": available_regions,
+            "region_has_data": reg in available_regions,
+            "data_saved_ts": saved_ts,
+            "data_age_days": age_days,
+            "prices_are_recent": age_days is not None and age_days <= 14,
             "adsense_client": os.environ.get("ADSENSE_CLIENT", "ca-pub-2012616805883507")}
 
 CATS = {
@@ -130,7 +244,9 @@ CATS = {
 }
 
 def _region():
-    region = request.args.get("region", "us") if has_request_context() else "us"
+    region = (request.args.get("region")
+              or request.cookies.get("region")
+              or "us") if has_request_context() else "us"
     return region if region in REGION_CURRENCY else "us"
 
 def _rows(cat):
@@ -144,35 +260,53 @@ def _rows(cat):
 def index():
     cache = get_data(region=_region())
     info = cache_info(cache)
-    # top picks
-    def top(key, cat, n=6):
+    age_days = None
+    if cache and cache.get("_saved_at"):
+        age_days = max(0.0, (_time.time() - float(cache["_saved_at"])) / 86400)
+    prices_are_recent = age_days is not None and age_days <= 14
+
+    # Top value picks. These use the same eligibility rules as the category
+    # pages, so server CPUs and old GPU generations cannot win the front page.
+    def top(key, cat, n=6, extra=None):
         rows = cache.get(key, []) if cache else []
         rows = [r for r in rows if is_eligible(cat, r) and r.get("value")]
+        if extra:
+            rows = [r for r in rows if extra(r)]
         rows.sort(key=lambda r: r.get("value") or 0, reverse=True)
         return rows[:n]
-    top_cpu = top("cpus", "cpu")
-    top_gpu = top("gpus", "gpu")
-    # best by benchmark score, among current parts (price not required)
-    best_cpu = [r for r in (cache.get("cpus", []) if cache else []) if r.get("mark") is not None]
-    best_cpu.sort(key=lambda r: r.get("mark") or 0, reverse=True)
-    best_gpu = [r for r in (cache.get("gpus", []) if cache else []) if r.get("score") is not None]
-    best_gpu.sort(key=lambda r: r.get("score") or 0, reverse=True)
-    # newest deal
+
+    top_cpu = top("cpus", "cpu") if prices_are_recent else []
+    top_gpu = top("gpus", "gpu") if prices_are_recent else []
+    top_stor = top("storage", "storage", extra=is_nvme_storage) if prices_are_recent else []
+    top_psu = top("psu", "psu", extra=is_quality_psu) if prices_are_recent else []
+
+    # Newest deal
     try:
         newest_deal = (fetch_deals("newest") or [None])[0]
     except Exception:
         newest_deal = None
-    # memory/storage/psu best by price, among current priced parts only
+
+    # RAM/storage/PSU best by unit price, among current priced parts only.
     mem = [r for r in (cache.get("memory", []) if cache else []) if is_eligible("memory", r) and r.get("price_per_gb")]
     mem.sort(key=lambda r: r["price_per_gb"])
-    stor = [r for r in (cache.get("storage", []) if cache else []) if is_eligible("storage", r) and r.get("price_per_gb")]
-    stor.sort(key=lambda r: r["price_per_gb"])
-    psu = [r for r in (cache.get("psu", []) if cache else []) if is_eligible("psu", r) and r.get("price_per_watt")]
-    psu.sort(key=lambda r: r["price_per_watt"])
+    if not prices_are_recent:
+        top_cpu = top_gpu = top_stor = top_psu = []
+    top_mem = mem[:6] if prices_are_recent else []
+
+    # Compact category directory: cheapest eligible price rather than a raw
+    # row count, which is more useful when deciding where to start.
+    cat_stats = {}
+    for key, meta in CATS.items():
+        rows = cache.get(meta["key"], []) if cache else []
+        prices = [r.get("price") for r in rows if is_eligible(key, r) and r.get("price")]
+        cat_stats[key] = {"title": meta["title"], "count": len(rows),
+                          "from": min(prices) if (prices and prices_are_recent) else None}
+
     return render_template("index.html", info=info, top_cpu=top_cpu, top_gpu=top_gpu,
-                           best_cpu=best_cpu[:5], best_gpu=best_gpu[:5],
                            newest_deal=newest_deal,
-                           top_mem=mem[:6], top_stor=stor[:6], top_psu=psu[:6], cats=CATS)
+                           top_mem=top_mem, top_stor=top_stor, top_psu=top_psu,
+                           cat_stats=cat_stats, cats=CATS,
+                           prices_are_recent=prices_are_recent, data_age_days=age_days)
 
 @app.route("/category/<cat>")
 def category(cat):
@@ -352,17 +486,30 @@ PC_PART_KEYWORDS = ["ryzen", "core i3", "core i5", "core i7", "core i9", "core u
 
 _deals_cache = {"at": 0.0, "data": [], "loading": False}
 _deals_lock = _threading.Lock()
-SYSTEM_KEYWORDS = ["laptop", "notebook", "chromebook", "macbook", "mac mini", "mac pro", "imac", "prebuilt", "gaming pc", "desktop computer", "desktop pc", "desktop w/", "desktop:", "all-in-one", "thinkpad", "omnibook", "aspire", "yoga", "nitro", "swift", "predator", "helios", "aegis", "loq", "alienware", "omen", "victus", "legion", "ideapad", "thinkcentre", "optiplex", "vostro", "latitude", "precision", "surface", "lego", "soup", "chowder", "clam", "grocery", "pantry", "drill", "mattress", "smartwatch", "filament", "picture frame", "phone", "tablet", "mini pc", "car refrigerator", "portable fridge", "refrigerator", "beverage", "scanner", "soft-sided", "soft cooler", "hard cooler", "can cooler", "ozark", "trail", "insulated", "removable hard liner", "marine cooler", "3d", "printer", "marine cooler", "soft cooler", "hard cooler", "cooler cup", "mini fridge", "wine cooler", "insulated", "liquid death", "coleman", "stanley", "aurora", "dog", "cat", "pet", "puppy", "kitten", "feeder", "food", "dispenser", "bowl", "fish", "bird", "animal", "poultry", "livestock", "hamster", "rabbit", "reptile", "aquarium", "terrarium", "cage", "kennel", "litter", "groom", "leash", "collar", "treat", "molly", "cody", "disney", "minnie", "mickey", "earring", "earrings", "jewelry", "jewellery", "rhinestone", "necklace", "bracelet", "pendant", "brooch", "hoop earring", "mousetrap", "mouse trap", "rodent", "pest", "toy", "plush", "doll", "collectible", "costume", "cosplay", "apparel", "clothing", "shirt", "hoodie", "beanie", "headwear", "wearable", "sneakers", "boots", "sandals", "perfume", "makeup", "cosmetic", "skincare", "grill", "smoker", "pellet", "charcoal", "bbq", "barbecue", "pit boss", "air fryer", "pressure cooker", "slow cooker", "coffee maker", "espresso", "blender", "toaster", "microwave", "oven", "stove", "dishwasher", "vacuum", "lawn mower", "trimmer", "leaf blower", "generator", "patio", "furniture", "sofa", "mattress", "pillow", "blanket", "curtain", "rug", "lamp", "light bulb", "ceiling fan", "heater", "air conditioner", "humidifier", "dehumidifier", "appliance", "floor-standing", "floorstanding", "floor standing", "home theater", "home cinema", "home audio", "hi-fi", "hifi", "soundbar", "av receiver", "tower speaker", "portable speaker", "waterproof speaker", "outdoor speaker", "bluetooth speaker", "carabiner", "security camera", "surveillance", "cctv", "ip camera", "doorbell", "dashcam", "dash cam", "dash camera", "trail camera", "action camera", "nvr", "poe camera", "security cam", "reolink", "docking station", "displaylink", "usb-c dock", "usb dock", "usb docking", "usb hub", "thunderbolt dock", "projector", "carplay", "android auto", "car adapter", "blood glucose", "glucose", "co2", "air quality", "humidity", "blood pressure", "heart rate", "oximeter", "thermometer", "woodworking", "ryobi", "cordless router", "trim router", "plunge router", "compact router", "wallet", "rfid", "credit card", "card holder"]
+SYSTEM_KEYWORDS = ["lifepo4", "solar panel", "solar generator", "power station", "inverter", "car battery", "marine battery", "12v battery", "trolling motor", "gaming a16", "gaming a18", "rog zephyrus", "rog flow", "tuf gaming a1", "tuf gaming f1", "apple m4", "apple m5", "unified memory", "handheld", "anbernic", "emulator", "retro handheld", "game console", "raspberry pi", "office chair", "gaming chair", "desk", "baby", "infant", "toddler", "nursery", "stroller", "toothbrush", "flosser", "hair dryer", "flat iron", "curling iron", "shaver", "epilator", "handbag", "backpack", "luggage", "duvet", "comforter", "pillowcase", "slipper", "slippers", "laptop", "notebook", "chromebook", "macbook", "mac mini", "mac pro", "imac", "prebuilt", "gaming pc", "desktop computer", "desktop pc", "desktop w/", "desktop:", "all-in-one", "thinkpad", "omnibook", "aspire", "yoga", "nitro", "swift", "predator", "helios", "aegis", "loq", "alienware", "omen", "victus", "legion", "ideapad", "thinkcentre", "optiplex", "vostro", "latitude", "precision", "surface", "lego", "soup", "chowder", "clam", "grocery", "pantry", "drill", "mattress", "smartwatch", "filament", "picture frame", "phone", "tablet", "mini pc", "car refrigerator", "portable fridge", "refrigerator", "beverage", "scanner", "soft-sided", "soft cooler", "hard cooler", "can cooler", "ozark", "trail", "insulated", "removable hard liner", "marine cooler", "3d", "printer", "marine cooler", "soft cooler", "hard cooler", "cooler cup", "mini fridge", "wine cooler", "insulated", "liquid death", "coleman", "stanley", "aurora", "dog", "cat", "pet", "puppy", "kitten", "feeder", "food", "dispenser", "bowl", "fish", "bird", "animal", "poultry", "livestock", "hamster", "rabbit", "reptile", "aquarium", "terrarium", "cage", "kennel", "litter", "groom", "leash", "collar", "treat", "molly", "cody", "disney", "minnie", "mickey", "earring", "earrings", "jewelry", "jewellery", "rhinestone", "necklace", "bracelet", "pendant", "brooch", "hoop earring", "mousetrap", "mouse trap", "rodent", "pest", "toy", "plush", "doll", "collectible", "costume", "cosplay", "apparel", "clothing", "shirt", "hoodie", "beanie", "headwear", "wearable", "sneakers", "boots", "sandals", "perfume", "makeup", "cosmetic", "skincare", "grill", "smoker", "pellet", "charcoal", "bbq", "barbecue", "pit boss", "air fryer", "pressure cooker", "slow cooker", "coffee maker", "espresso", "blender", "toaster", "microwave", "oven", "stove", "dishwasher", "vacuum", "lawn mower", "trimmer", "leaf blower", "generator", "patio", "furniture", "sofa", "mattress", "pillow", "blanket", "curtain", "rug", "lamp", "light bulb", "ceiling fan", "heater", "air conditioner", "humidifier", "dehumidifier", "appliance", "floor-standing", "floorstanding", "floor standing", "home theater", "home cinema", "home audio", "hi-fi", "hifi", "soundbar", "av receiver", "tower speaker", "portable speaker", "waterproof speaker", "outdoor speaker", "bluetooth speaker", "carabiner", "security camera", "surveillance", "cctv", "ip camera", "doorbell", "dashcam", "dash cam", "dash camera", "trail camera", "action camera", "nvr", "poe camera", "security cam", "reolink", "docking station", "displaylink", "usb-c dock", "usb dock", "usb docking", "usb hub", "thunderbolt dock", "projector", "carplay", "android auto", "car adapter", "blood glucose", "glucose", "co2", "air quality", "humidity", "blood pressure", "heart rate", "oximeter", "thermometer", "woodworking", "ryobi", "cordless router", "trim router", "plunge router", "compact router", "wallet", "rfid", "credit card", "card holder"]
+
+def _has_negative_keyword(low):
+    """Match negative keywords on word boundaries.
+
+    Substring matching used to reject "Ryzen 9800X3D" because it contains
+    "3d", and "headphones" because it contains "phone". Boundaries keep the
+    filters precise without losing the broad phrases.
+    """
+    for word in SYSTEM_KEYWORDS:
+        if _re.search(r"(?<![a-z0-9])" + _re.escape(word) + r"(?![a-z0-9])", low):
+            return True
+    return False
+
 
 def _is_pc_part(title):
     low = title.lower()
-    if any(x in low for x in SYSTEM_KEYWORDS):
+    if _has_negative_keyword(low):
         return False
     has_pc = any(k in low for k in PC_PART_KEYWORDS)
     # PC cases are often titled just "Case"; require a case-like qualifier so
     # things like "case of 8" don't slip through.
-    case_qualifiers = ("tower", "atx", "mid", "full", "mini", "micro", "pc case",
-                       "computer case", "chassis", "tempered glass", "airflow")
+    case_qualifiers = ("tower", "atx", "itx", "matx", "eatx", "pc case", "computer case",
+                       "chassis", "tempered glass", "airflow", "mid-tower", "full-tower")
     if "case" in low and any(q in low for q in case_qualifiers):
         has_pc = True
     if not has_pc:
@@ -382,8 +529,6 @@ def _is_pc_part(title):
                 return False
     return True
 
-import re as _re
-
 def _parse_price(title):
     m = _re.search(r"\$\s*([\d,]+(?:\.\d{2})?)", title)
     if m:
@@ -397,7 +542,7 @@ DEAL_CAT_RULES = [
     ("thermal_paste", ["thermal paste", "thermal compound", "thermal grease", "thermal putty"]),
     ("cooler", ["cpu cooler", "aio cooler", "liquid cooler", "air cooler", "water cooler",
                 "cpu fan", "aio pump", "liquid cooling"]),
-    ("external_storage", ["nas", "network attached storage", "4-bay", "2-bay",
+    ("external_storage", ["nas", "network attached storage", "4-bay", "2-bay", "terramaster", "synology", "qnap",
                           "drive enclosure", "hard drive enclosure", "external storage",
                           "external drive", "external ssd", "external hdd"]),
     ("cpu", ["ryzen", "core i3", "core i5", "core i7", "core i9", "core ultra", "processor", "cpu"]),
@@ -407,7 +552,7 @@ DEAL_CAT_RULES = [
     ("psu", ["power supply", "psu"]),
     ("motherboard", ["motherboard"]),
     ("cooler", ["cooler", "thermal paste"]),
-    ("case", ["pc case", " pc case", "tower case", "mid tower", "mini tower"]),
+    ("case", ["pc case", "computer case", "tower case", "mid tower", "mid-tower", "mini tower", "full-tower", "atx case", "matx", "itx", "chassis"]),
     ("monitor", ["monitor"]),
     ("keyboard", ["keyboard"]),
     ("mouse", ["mouse"]),
@@ -431,11 +576,77 @@ def _deal_category(title):
     return "other"
 
 
+DEAL_MERCHANTS = [
+    "Amazon", "Newegg", "Best Buy", "B&H", "Walmart", "Target", "Micro Center", "Microcenter",
+    "Adorama", "Dell", "Lenovo", "HP", "eBay", "Costco", "Samsung", "Monoprice",
+    "Corsair", "Logitech", "Razer", "Newegg Business",
+]
+
+
+def _canonical_deal_key(link):
+    """Ignore tracking parameters so the same deal is only listed once."""
+    try:
+        parts = urlsplit(link)
+    except ValueError:
+        return (link or "").strip().lower()
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    path = (parts.path or "").rstrip("/").lower()
+    return host + path
+
+
+def _deal_merchant(title, desc=""):
+    text = f"{title} {desc}"
+    for name in DEAL_MERCHANTS:
+        if _re.search(r"\b" + _re.escape(name) + r"\b", text, _re.I):
+            return name
+    return "Slickdeals"
+
+
+def _deal_image(desc):
+    m = _re.search(r'<img[^>]+src=["\'](https://[^"\']+)["\']', desc or "", _re.I)
+    if m:
+        return m.group(1).replace("&amp;", "&")
+    m = _re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\'](https://[^"\']+)["\']', desc or "", _re.I)
+    return m.group(1).replace("&amp;", "&") if m else None
+
+
+def _deal_model_key(title, price):
+    """Catch the same listing reposted with a different title/link.
+
+    Only distinctive model tokens are used, never common spec tokens such as
+    "rtx5070" or "ddr5", so two different cards at the same price are kept.
+    """
+    if price is None:
+        return None
+    spec = _re.compile(r"^(?:rtx|gtx|rx|arc|ddr|pcie|atx|wifi|gen|usb|hdmi|dp)\d", _re.I)
+    candidates = []
+    for token in _re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{3,}", title or ""):
+        low = token.lower()
+        if not (_re.search(r"[a-z]", low) and _re.search(r"\d", low)):
+            continue
+        if _re.fullmatch(r"\d+x\d+", low) or spec.match(low) or _re.fullmatch(r"\d+(?:gb|tb|hz|w|mm)", low):
+            continue
+        candidates.append(low)
+    if not candidates:
+        return None
+    model = max(candidates, key=len)
+    if len(model) < 5:
+        return None
+    return f"model|{_deal_category(title)}|{model}|{round(float(price), 2)}"
+
+
+def _deal_title_key(title, price):
+    text = _re.sub(r"\$[\d,.]+", " ", (title or "").lower())
+    text = " ".join(_re.sub(r"[^a-z0-9]+", " ", text).split()[:14])
+    if not text:
+        return None
+    return f"title|{text}|{round(float(price), 2) if price is not None else 'na'}"
+
+
 def _refresh_deals():
     global _deals_cache
-    import time as _t
     deals = []
-    seen = set()
+    seen = {}
     queries = ["cpu", "gpu", "ssd", "motherboard", "power supply", "cooler", "ram",
                "monitor", "keyboard", "mouse", "headphones", "case", "network adapter",
                "wifi", "router", "ups", "sound card", "webcam", "speakers", "external storage",
@@ -454,53 +665,93 @@ def _refresh_deals():
             link = (it.findtext("link") or "").strip()
             desc = (it.findtext("description") or "").strip()
             pub = (it.findtext("pubDate") or "").strip()
-            if not title or link in seen:
+            if not title or not link:
                 continue
             if not _is_pc_part(title):
                 continue
-            seen.add(link)
-            deals.append({"title": title, "link": link, "desc": desc, "pubDate": pub, "price": _parse_price(title), "cat": _deal_category(title)})
-    _deals_cache = {"at": _t.time(), "data": deals, "loading": False}
+            price = _parse_price(title) or _parse_price(desc)
+            link_key = _canonical_deal_key(link)
+            title_key = _deal_title_key(title, price)
+            model_key = _deal_model_key(title, price)
+            if link_key in seen:
+                existing = deals[seen[link_key]]
+                if price and not existing.get("price"):
+                    existing.update({"price": price, "desc": desc or existing.get("desc"),
+                                     "image": existing.get("image") or _deal_image(desc),
+                                     "pubDate": pub or existing.get("pubDate")})
+                continue
+            if (title_key and title_key in seen) or (model_key and model_key in seen):
+                continue
+            seen[link_key] = len(deals)
+            if title_key:
+                seen[title_key] = len(deals)
+            if model_key:
+                seen[model_key] = len(deals)
+            deals.append({
+                "title": title,
+                "link": link,
+                "desc": desc,
+                "pubDate": pub,
+                "price": price,
+                "cat": _deal_category(title),
+                "merchant": _deal_merchant(title, desc),
+                "image": _deal_image(desc),
+            })
+    _deals_cache = {"at": _time.time(), "data": deals, "loading": False}
 
 
 def fetch_deals(sort="newest", cat=None):
-    import time as _t
     # Serve cached deals immediately; refresh in the background so a cold
     # start can never block the page on Slickdeals requests.
-    if not _deals_cache["data"] or (_t.time() - _deals_cache["at"]) > 600:
+    if not _deals_cache["data"] or (_time.time() - _deals_cache["at"]) > 600:
         with _deals_lock:
             if not _deals_cache.get("loading"):
                 _deals_cache["loading"] = True
                 _threading.Thread(target=_refresh_deals, daemon=True).start()
     deals = list(_deals_cache["data"])
-    # sort (parse dates so weekday names don't scramble the order)
-    from email.utils import parsedate_to_datetime
+
     def when(d):
-        try:
-            return parsedate_to_datetime(d.get("pubDate") or "")
-        except Exception:
-            return None
+        return _as_datetime(d.get("pubDate")) or datetime.min.replace(tzinfo=timezone.utc)
+
     if cat and cat not in ("", "all", None):
         deals = [d for d in deals if d.get("cat") == cat]
     if sort == "oldest":
-        deals.sort(key=lambda d: (when(d) is None, when(d)))
+        deals.sort(key=when)
     elif sort == "price_asc":
         deals.sort(key=lambda d: (d.get("price") is None, d.get("price") or 0))
     elif sort == "price_desc":
         deals.sort(key=lambda d: (d.get("price") is None, -(d.get("price") or 0)))
     else:  # newest
-        deals.sort(key=lambda d: (when(d) is None, when(d)), reverse=True)
-    return deals[:40]
+        deals.sort(key=when, reverse=True)
+    return deals[:240]
+
 
 @app.route("/deals")
 def deals():
     sort = request.args.get("sort", "newest")
     cat = request.args.get("cat", "all")
-    return render_template("deals.html", deals=fetch_deals(sort, cat), sort=sort, cat=cat, cats=CATS)
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+    per_page = 24
+    all_deals = fetch_deals(sort, cat)
+    total = len(all_deals)
+    pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, pages)
+    return render_template("deals.html", deals=all_deals[(page - 1) * per_page:page * per_page],
+                           sort=sort, cat=cat, cats=CATS, page=page, pages=pages, total=total,
+                           per_page=per_page, deals_updated=_deals_cache.get("at"),
+                           deals_loading=bool(_deals_cache.get("loading")))
 
 @app.route("/privacy")
 def privacy():
     return render_template("privacy.html", cats=CATS)
+
+
+@app.route("/methodology")
+def methodology():
+    return render_template("methodology.html", cats=CATS)
 
 @app.route("/ads.txt")
 def ads_txt():
@@ -694,7 +945,7 @@ def api_history():
 
 @app.route("/api/liveprice")
 def api_liveprice():
-    return jsonify({"price": None, "note": "Live Amazon prices need an Amazon Product Advertising API key, which isn't set up yet."})
+    return jsonify({"price": None, "note": "Live retailer prices are not available. Use the retailer links shown in the table."}), 410
 
 PLACEHOLDER_LABELS = {"cpu": "CPU", "gpu": "GPU", "memory": "RAM", "storage": "SSD", "psu": "PSU",
                       "motherboard": "BOARD", "case": "CASE", "cooler": "COOLER", "prebuilt": "PC",
@@ -747,7 +998,7 @@ def search():
 @app.route("/sitemap.xml")
 def sitemap():
     base = request.url_root.rstrip("/")
-    urls = ["/", "/deals", "/build", "/compat", "/watchlist", "/leaderboard", "/guide/best-budget-gaming-pc", "/install"]
+    urls = ["/", "/deals", "/build", "/compat", "/watchlist", "/leaderboard", "/guide/best-budget-gaming-pc", "/install", "/methodology", "/sources"]
     for k in CATS:
         urls.append("/category/" + k)
     body = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
@@ -770,27 +1021,12 @@ def guide_budget():
 
 @app.route("/api/subscribe", methods=["POST"])
 def api_subscribe():
-    email = (request.form.get("email") or request.json.get("email") if request.is_json else None or "").strip().lower()
-    if not email or "@" not in email or len(email) > 200:
-        return jsonify({"ok": False, "message": "Enter a valid email."}), 400
-    path = os.path.join(os.path.dirname(__file__), "data", "subscribers.json")
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        try:
-            with open(path, encoding="utf-8") as f:
-                subs = json.load(f)
-        except (OSError, ValueError):
-            subs = []
-        if email not in subs:
-            subs.append(email)
-            tmp = path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(subs, f)
-            os.replace(tmp, path)
-    except OSError as e:
-        logger.warning("subscribe failed: %s", e)
-        return jsonify({"ok": False, "message": "Could not save. Try again."}), 500
-    return jsonify({"ok": True, "message": "You're on the list. Thanks!"})
+    # There is no email provider wired up yet. Do not collect addresses we
+    # cannot deliver to, and do not promise a digest that will never arrive.
+    return jsonify({
+        "ok": False,
+        "message": "Email alerts are not available yet. Use the watchlist or check the deals page for now.",
+    }), 503
 
 
 if __name__ == "__main__":

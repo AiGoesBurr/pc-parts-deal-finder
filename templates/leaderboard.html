@@ -1,19 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Leaderboard - PC Parts Deal Finder{% endblock %}
+{% block title %}Performance-per-Dollar Leaderboard - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<h2>Performance-per-dollar leaderboard</h2>
-<p class="muted small">Top 15 parts per category ranked by Value (higher = better bang for buck).</p>
+<h1 class="h2">Performance-per-dollar leaderboard</h1>
+<p class="muted small">Top 15 current parts per category ranked by value (higher = better bang for buck). Server CPUs and older GPU generations are excluded.</p>
 {% for cat, (meta, rows) in boards.items() %}
 <div class="card p-3 mb-3">
-  <h5>{{ meta.title }}</h5>
-  <table class="table table-sm">
-    <thead><tr><th>#</th><th>Name</th><th>Specs</th><th>Price</th><th>Value</th></tr></thead>
+  <h2 class="h5">{{ meta.title }}</h2>
+  <div class="table-responsive">
+  <table class="table table-sm mb-0">
+    <thead><tr><th scope="col">#</th><th scope="col">Name</th><th scope="col">Specs</th><th scope="col" class="text-end">Price</th><th scope="col" class="text-end">Value</th></tr></thead>
     <tbody>
       {% for r in rows %}
-      <tr><td>{{ loop.index }}</td><td><a href="/category/{{ cat }}?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td class="muted small">{{ r._spec }}</td><td>{{ currency_symbol }}{{ r.price }}</td><td>{{ r.value }}</td></tr>
+      <tr><td>{{ loop.index }}</td><td><a href="/category/{{ cat }}?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td class="muted small">{{ r._spec }}</td><td class="text-end">{{ r.price|money }}</td><td class="text-end">{{ r.value|num(1) }}</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
+{% else %}
+<p class="muted">No ranked parts are available right now. <a href="/sources">Check the data status</a>.</p>
 {% endfor %}
 {% endblock %}

@@ -55,29 +55,25 @@ _mem_cache = {}
 def load_cache(region="us"):
     region = _valid_region(region)
     p = _cache_path(region)
-    if not os.path.exists(p):
-        # GitHub Actions commits a gzipped snapshot so a fresh deploy has data.
-        p_gz = p + ".gz"
-        if not os.path.exists(p_gz):
-            return None
-        try:
-            entry = _mem_cache.get(region)
-            mtime = os.path.getmtime(p_gz)
-            if entry and entry[0] == mtime:
-                return entry[1]
-            with gzip.open(p_gz, "rt", encoding="utf-8") as f:
-                data = json.load(f)
-            _mem_cache[region] = (mtime, data)
-            return data
-        except Exception:
-            return None
+    p_gz = p + ".gz"
+    # Prefer whichever snapshot is newer. A local JSON scrape can be older than
+    # the gzipped snapshot committed by CI, and silently using it shows stale
+    # prices on the site.
+    candidates = [(mt, path, False) for path in (p,) if os.path.exists(path) for mt in (os.path.getmtime(path),)]
+    candidates += [(mt, path, True) for path in (p_gz,) if os.path.exists(path) for mt in (os.path.getmtime(path),)]
+    if not candidates:
+        return None
+    mtime, path, is_gz = max(candidates, key=lambda item: item[0])
     try:
-        mtime = os.path.getmtime(p)
         entry = _mem_cache.get(region)
         if entry and entry[0] == mtime:
             return entry[1]
-        with open(p, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        if is_gz:
+            with gzip.open(path, "rt", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
         _mem_cache[region] = (mtime, data)
         return data
     except Exception:

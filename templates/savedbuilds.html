@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Saved Builds - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<h2>Saved builds</h2>
+<h1 class="h2">Saved builds</h1>
 <p class="muted small">Builds are stored in your browser (no account needed).</p>
 <div id="msg" class="muted"></div>
 <div id="list" class="row g-3"></div>
@@ -22,7 +22,7 @@ async function render(){
   for (let i=0;i<builds.length;i++){
     const b = builds[i];
     html += `<div class="col-md-6"><div class="card p-3 h-100">
-      <h5>${esc(b.name)}</h5>
+      <h2 class="h5">${esc(b.name)}</h2>
       <div class="muted small">${b.savedAt||""}</div>
       <div class="muted small mt-1">Total: ${CURRENCY}${(b.total||0).toFixed(2)}</div>
       <ul class="small mt-2 mb-2">${CAT_ORDER.filter(c=>b.selections[c]).map(c=>`<li>${CATS[c].title}: ${esc(b.selections[c])}</li>`).join("")}</ul>

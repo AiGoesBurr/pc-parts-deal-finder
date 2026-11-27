@@ -1,42 +1,91 @@
 {% extends "base.html" %}
-{% block title %}PC Deals - PC Parts Deal Finder{% endblock %}
+{% block title %}PC Hardware Deals - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>PC hardware deals</h2>
-  <form method="get" action="/deals" class="d-flex align-items-center flex-wrap gap-2">
-    <label class="me-2 muted small">Category:</label>
-    <select name="cat" class="form-select form-select-sm me-2" style="width:auto" onchange="this.form.submit()">
-      <option value="all" {% if cat=='all' %}selected{% endif %}>All categories</option>
-      {% for k, m in cats.items() %}
-      <option value="{{ k }}" {% if cat==k %}selected{% endif %}>{{ m.title }}</option>
-      {% endfor %}
-    </select>
-    <label class="me-2 muted small">Sort by:</label>
-    <select name="sort" class="form-select form-select-sm me-2" style="width:auto" onchange="this.form.submit()">
-      <option value="newest" {% if sort=='newest' %}selected{% endif %}>Newest first</option>
-      <option value="oldest" {% if sort=='oldest' %}selected{% endif %}>Oldest first</option>
-      <option value="price_asc" {% if sort=='price_asc' %}selected{% endif %}>Price: low to high</option>
-      <option value="price_desc" {% if sort=='price_desc' %}selected{% endif %}>Price: high to low</option>
-    </select>
-  </form>
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+  <div>
+    <h1 class="h2 mb-0">PC hardware deals</h1>
+    <p class="muted small mb-0">Deals from Slickdeals (US), filtered to PC parts{% if deals_updated %}, refreshed {{ deals_updated|ago }}{% endif %}. Prices are shown in USD.</p>
+  </div>
+  <div class="d-flex flex-wrap align-items-end gap-2">
+    <form method="get" action="/deals" class="d-flex align-items-end flex-wrap gap-2">
+      <div>
+        <label class="form-label small mb-0" for="dealCat">Category</label>
+        <select id="dealCat" name="cat" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="all" {% if cat=='all' %}selected{% endif %}>All categories</option>
+          {% for k, m in cats.items() %}
+          <option value="{{ k }}" {% if cat==k %}selected{% endif %}>{{ m.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label small mb-0" for="dealSort">Sort by</label>
+        <select id="dealSort" name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="newest" {% if sort=='newest' %}selected{% endif %}>Newest first</option>
+          <option value="oldest" {% if sort=='oldest' %}selected{% endif %}>Oldest first</option>
+          <option value="price_asc" {% if sort=='price_asc' %}selected{% endif %}>Price: low to high</option>
+          <option value="price_desc" {% if sort=='price_desc' %}selected{% endif %}>Price: high to low</option>
+        </select>
+      </div>
+    </form>
+    <a class="btn btn-sm btn-outline-light" href="/sources">How deals are sourced</a>
+  </div>
 </div>
-<p class="muted">Live PC parts deals from Slickdeals, filtered to components.</p>
+<p class="muted small">{{ total }} matching deal{% if total != 1 %}s{% endif %}.</p>
+
 {% if not deals %}
-<p class="muted">No matching deals right now.</p>
+<div class="card p-4">
+  {% if deals_loading %}
+  <p class="mb-1">Gathering deals from Slickdeals...</p>
+  <p class="muted small mb-0">This page will refresh automatically in a few seconds.</p>
+  <script>setTimeout(() => location.reload(), 8000);</script>
+  {% else %}
+  <p class="mb-1">No matching deals right now.</p>
+  <p class="muted small mb-0">The feed refreshes every 10 minutes. Try another category or check back shortly.</p>
+  {% endif %}
+</div>
 {% else %}
 <div class="row g-3">
   {% for d in deals %}
-  <div class="col-md-6">
-    <div class="card p-3 h-100">
-      <a href="{{ d.link }}" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">{{ d.title }}</a>
-      <div class="muted small mt-1">
-        {% if d.price %}Price: {{ currency_symbol }}{{ d.price }}{% endif %}
-        {% if d.pubDate %} &middot; {{ d.pubDate }}{% endif %}
+  <div class="col-md-6 col-xl-4">
+    <article class="card p-3 h-100 d-flex flex-column">
+      <div class="d-flex align-items-start gap-2 mb-2">
+        {% if d.image %}
+        <img src="{{ d.image }}" alt="" width="56" height="56" loading="lazy" referrerpolicy="no-referrer" style="object-fit:contain;border-radius:6px;background:var(--bg)" onerror="this.style.display='none'">
+        {% else %}
+        <span class="badge text-bg-secondary align-self-start">{{ (cats.get(d.cat) or {}).get('title', 'PC part') }}</span>
+        {% endif %}
+        <div class="flex-grow-1">
+          <a href="{{ d.link }}" target="_blank" rel="noopener nofollow" class="fw-semibold text-decoration-none d-block">{{ d.title }}</a>
+          <div class="muted small">{{ d.merchant }} &middot; {{ d.pubDate|ago }}</div>
+        </div>
       </div>
-      <p class="muted small mt-2">{{ d.desc[:220] }}</p>
-    </div>
+      {% if d.desc %}<p class="muted small mb-2">{{ d.desc|striptags|truncate(170) }}</p>{% endif %}
+      <div class="d-flex justify-content-between align-items-center mt-auto gap-2">
+        {% if d.image %}<span class="badge text-bg-secondary">{{ (cats.get(d.cat) or {}).get('title', 'PC part') }}</span>{% else %}<span></span>{% endif %}
+        <div class="d-flex align-items-center gap-2">
+          {% if d.price %}<span class="fw-bold">{{ '$' }}{{ d.price|num(2) }}</span>{% endif %}
+          <a href="{{ d.link }}" target="_blank" rel="noopener nofollow" class="btn btn-sm btn-primary">View deal</a>
+        </div>
+      </div>
+    </article>
   </div>
   {% endfor %}
 </div>
+
+{% if pages > 1 %}
+<nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Deal pages">
+  {% if page > 1 %}
+  <a class="btn btn-sm btn-outline-light" href="{{ url_for('deals', cat=cat, sort=sort, page=page-1) }}">&larr; Previous</a>
+  {% else %}
+  <span class="btn btn-sm btn-outline-light disabled" aria-disabled="true">&larr; Previous</span>
+  {% endif %}
+  <span class="muted small">Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}
+  <a class="btn btn-sm btn-outline-light" href="{{ url_for('deals', cat=cat, sort=sort, page=page+1) }}">Next &rarr;</a>
+  {% else %}
+  <span class="btn btn-sm btn-outline-light disabled" aria-disabled="true">Next &rarr;</span>
+  {% endif %}
+</nav>
+{% endif %}
 {% endif %}
 {% endblock %}

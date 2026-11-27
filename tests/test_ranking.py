@@ -17,9 +17,19 @@ def test_is_current_cpu():
 
 def test_is_current_gpu():
     assert ranking.is_current_gpu("GeForce RTX 5070 Ti")
-    assert ranking.is_current_gpu("Radeon RX 6600")
+    assert ranking.is_current_gpu("Radeon RX 9070 XT")
+    assert ranking.is_current_gpu("Intel Arc B580")
+    assert not ranking.is_current_gpu("Radeon RX 6600")
     assert not ranking.is_current_gpu("GeForce RTX 3050 A Laptop GPU")
     assert not ranking.is_current_gpu("Radeon RX 580")
+
+
+def test_quality_floors():
+    assert ranking.is_quality_psu({"name": "SeaSonic Focus GX-750", "efficiency": "80+ Gold"})
+    assert not ranking.is_quality_psu({"name": "Apevia Prestige", "efficiency": "80+ Gold"})
+    assert not ranking.is_quality_psu({"name": "Rosewill ARC 750", "efficiency": "80+ Bronze"})
+    assert ranking.is_nvme_storage({"interface": "M.2 (M)", "form_factor": "M.2-2280"})
+    assert not ranking.is_nvme_storage({"interface": "SATA 6 Gb/s", "form_factor": "2.5\""})
 
 def test_case_fit():
     assert ranking.case_fits_board({"form_factor": "ATX"}, {"form_factor": "ATX Mid Tower"})

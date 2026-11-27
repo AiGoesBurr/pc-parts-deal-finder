@@ -2,11 +2,20 @@
 {% block title %}Compare - PC Parts Deal Finder{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>Compare: {{ meta.title }}</h2>
+  <h1 class="h2">Compare: {{ meta.title }}</h1>
   <a class="btn btn-sm btn-primary" href="/category/{{ cat }}">Back to list</a>
 </div>
 <p class="muted small">Selected items are stored per category. Go back to the list to change selection.</p>
-<div id="msg" class="muted"></div>
+<div id="msg" class="muted" aria-live="polite"></div>
+<div class="card p-3 mb-3" id="emptyHelp">
+  <h2 class="h6">Nothing selected yet</h2>
+  <p class="small mb-2">Open the category list, tick at least two parts, then press Compare.</p>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-primary" href="/category/{{ cat }}">Choose {{ meta.title }}</a>
+    <a class="btn btn-sm btn-outline-light" href="/category/cpu?sort=value&order=desc">See best value CPUs</a>
+    <a class="btn btn-sm btn-outline-light" href="/category/gpu?sort=value&order=desc">See best value GPUs</a>
+  </div>
+</div>
 <div class="table-responsive">
   <table class="table table-sm table-bordered" id="ctbl">
     <thead id="chead"></thead>
@@ -17,6 +26,7 @@
 {% block scripts %}
 <script>
 const CAT = "{{ cat }}";
+const REGION = "{{ region }}";
 const SEL_KEY = "compare_"+CAT;
 const selected = new Set(JSON.parse(localStorage.getItem(SEL_KEY) || "[]"));
 const FIELDS = {
@@ -38,9 +48,17 @@ function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace
 function fmt(v){ if(v===null||v===undefined) return ""; if(typeof v==="object") return (v.default ?? v.max ?? JSON.stringify(v)); if(typeof v==="number") return Math.round(v*100)/100; return esc(v); }
 async function load(){
   if (selected.size < 2){ document.getElementById("msg").textContent = "Select at least 2 items on the category page."; return; }
-  const res = await fetch("/api/data/"+CAT+"?limit=100000");
-  const j = await res.json();
-  const items = j.rows.filter(r => selected.has(r.name));
+  const help = document.getElementById("emptyHelp"); if (help) help.style.display = "none";
+  let j;
+  try {
+    const res = await fetch("/api/data/"+CAT+"?limit=100000&region="+encodeURIComponent(REGION));
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    j = await res.json();
+  } catch (e) {
+    document.getElementById("msg").textContent = "Could not load the selected parts. Refresh and try again.";
+    return;
+  }
+  const items = (j.rows || []).filter(r => selected.has(r.name));
   if (items.length < 2){ document.getElementById("msg").textContent = "Selected items not found."; return; }
   const skip = ["source","source_url","prev_price","price_change_pct","category","link","percent","model"];
   const fields = FIELDS[CAT] || Object.keys(items[0]).filter(k => !skip.includes(k));

@@ -1,74 +1,102 @@
 {% extends "base.html" %}
 {% block title %}{{ meta.title }} - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>{{ meta.title }}</h2>
-  <div>
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+  <h1 class="h2 mb-0">{{ meta.title }}</h1>
+  <div class="d-flex align-items-center gap-2">
+    {% if data_age_days is not none %}<span class="muted small">Prices updated {{ data_saved_ts|ago }}</span>{% endif %}
     <a class="btn btn-sm btn-primary" href="/export/{{ cat }}.csv">Export CSV</a>
   </div>
 </div>
+{% if data_age_days is not none and data_age_days > 14 %}
+<div class="alert alert-warning small">These prices are more than two weeks old. Use them as a guide only and confirm at the retailer.</div>
+{% endif %}
+{% if not data_saved_ts %}
+<div class="alert alert-info small">No price data for {{ region|upper }} yet. The scraper has been asked to gather it; check back in a few minutes or <a href="{{ request.path }}?region=us{% if request.args.get('q') %}&q={{ request.args.get('q')|urlencode }}{% endif %}">switch to US data</a>.</div>
+<script>
+let sawRegionScrape = false;
+async function pollRegion(){
+  try {
+    const r = await fetch("/api/status");
+    const j = await r.json();
+    if (j.scraping) { sawRegionScrape = true; setTimeout(pollRegion, 5000); }
+    else if (sawRegionScrape) { location.reload(); }
+    else { setTimeout(pollRegion, 5000); }
+  } catch (e) { setTimeout(pollRegion, 5000); }
+}
+pollRegion();
+</script>
+{% endif %}
 <div class="card p-3 mb-3 filter-bar">
   <div class="row g-2">
-    <div class="col-md-3"><input id="q" class="form-control" placeholder="Search name/brand..."></div>
-    <div class="col-md-2"><input id="minPrice" class="form-control" type="number" step="0.01" placeholder="Min price"></div>
-    <div class="col-md-2"><input id="maxPrice" class="form-control" type="number" step="0.01" placeholder="Max price"></div>
+    <div class="col-md-3"><input id="q" class="form-control" placeholder="Search name or brand..." aria-label="Search by name or brand" value="{{ request.args.get('q','') }}"></div>
+    <div class="col-md-2"><input id="minPrice" class="form-control" type="number" step="0.01" placeholder="Min price" aria-label="Minimum price"></div>
+    <div class="col-md-2"><input id="maxPrice" class="form-control" type="number" step="0.01" placeholder="Max price" aria-label="Maximum price"></div>
     <div class="col-md-2">
-      <select id="sort" class="form-select">
+      <select id="sort" class="form-select" aria-label="Sort by">
         <option value="value">Sort by value</option>
         <option value="price">Price</option>
         <option value="name">Name</option>
       </select>
     </div>
-    <div class="col-md-1">
-      <select id="order" class="form-select">
-        <option value="desc">Desc</option>
-        <option value="asc">Asc</option>
-      </select>
-    </div>
-    <div class="col-md-2">
-      <select id="brand" class="form-select"><option value="">All brands</option></select>
-    </div>
-    <div class="col-md-2">
-      <button id="compareBtn" class="btn btn-sm btn-warning w-100" disabled onclick="goCompare()">Compare</button>
+    <div class="col-md-3">
+      <select id="brand" class="form-select" aria-label="Filter by brand"><option value="">All brands</option></select>
     </div>
   </div>
   <div class="row g-2 mt-1 align-items-center" id="extraFilters">
+    <div class="col-md-2">
+      <select id="order" class="form-select" aria-label="Sort direction">
+        <option value="desc">Descending</option>
+        <option value="asc">Ascending</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button id="compareBtn" class="btn btn-sm btn-primary w-100" disabled onclick="goCompare()">Compare</button>
+    </div>
     <div class="col-md-3"><label class="small mb-0"><input type="checkbox" id="eligibleOnly" checked> Current &amp; priced parts only</label></div>
     {% if cat == 'cpu' %}
-    <div class="col-md-2"><input id="minCores" class="form-control" type="number" step="1" placeholder="Min cores"></div>
-    <div class="col-md-2"><input id="maxCores" class="form-control" type="number" step="1" placeholder="Max cores"></div>
+    <div class="col-md-2"><input id="minCores" class="form-control" type="number" step="1" placeholder="Min cores" aria-label="Minimum cores"></div>
+    <div class="col-md-2"><input id="maxCores" class="form-control" type="number" step="1" placeholder="Max cores" aria-label="Maximum cores"></div>
     {% endif %}
     {% if cat == 'case' %}
     <div class="col-md-3">
-      <select id="formFactor" class="form-select"><option value="">All form factors</option></select>
+      <select id="formFactor" class="form-select" aria-label="Filter by form factor"><option value="">All form factors</option></select>
     </div>
     {% endif %}
     {% if cat == 'gpu' %}
-    <div class="col-md-2"><input id="minVram" class="form-control" type="number" step="0.1" placeholder="Min VRAM GB"></div>
-    <div class="col-md-2"><input id="maxVram" class="form-control" type="number" step="0.1" placeholder="Max VRAM GB"></div>
-    <div class="col-md-2"><input id="minLen" class="form-control" type="number" step="1" placeholder="Min length mm"></div>
-    <div class="col-md-2"><input id="maxLen" class="form-control" type="number" step="1" placeholder="Max length mm"></div>
+    <div class="col-md-2"><input id="minVram" class="form-control" type="number" step="0.1" placeholder="Min VRAM GB" aria-label="Minimum VRAM in GB"></div>
+    <div class="col-md-2"><input id="maxVram" class="form-control" type="number" step="0.1" placeholder="Max VRAM GB" aria-label="Maximum VRAM in GB"></div>
+    <div class="col-md-2"><input id="minLen" class="form-control" type="number" step="1" placeholder="Min length mm" aria-label="Minimum length in millimetres"></div>
+    <div class="col-md-2"><input id="maxLen" class="form-control" type="number" step="1" placeholder="Max length mm" aria-label="Maximum length in millimetres"></div>
     {% endif %}
     {% if cat == 'storage' %}
     <div class="col-md-3">
-      <select id="storageType" class="form-select">
+      <select id="storageType" class="form-select" aria-label="Filter by storage type">
         <option value="">SSD or HDD (Both)</option>
         <option value="SSD">SSD only</option>
         <option value="HDD">HDD only</option>
       </select>
     </div>
     {% endif %}
+    {% if cat == 'memory' %}
+    <div class="col-md-3">
+      <select id="moduleType" class="form-select" aria-label="Filter by memory generation"><option value="">All generations</option></select>
+    </div>
+    {% endif %}
+    {% if cat == 'psu' %}
+    <div class="col-md-3">
+      <select id="efficiency" class="form-select" aria-label="Filter by 80 Plus rating"><option value="">All 80+ ratings</option></select>
+    </div>
+    {% endif %}
     {% if cat == 'monitor' %}
     <div class="col-md-3">
-      <select id="panelType" class="form-select">
-        <option value="">All panel types</option>
-      </select>
+      <select id="panelType" class="form-select" aria-label="Filter by panel type"><option value="">All panel types</option></select>
     </div>
     {% endif %}
   </div>
 </div>
 <div class="muted small mb-2" id="count"></div>
-<p class="muted small">* Prices are best-price estimates from PassMark/PCPartPicker and may be outdated. Use the Buy links for current retailer pricing.</p>
+<p class="muted small">* Prices are best-price estimates from PassMark/PCPartPicker and may lag current retailer pricing. Use the retailer links on each row for live prices.</p>
 <div class="table-responsive">
   <table class="table table-sm table-hover" id="tbl">
     <thead id="thead"></thead>
@@ -95,6 +123,8 @@
 <script>
 const CAT = "{{ cat }}";
 const META = {{ meta|tojson }};
+const REGION = "{{ region }}";
+const RETAILERS = {{ retailers|tojson }};
 let allRows = [];
 let totalCount = 0;
 let page = 0;
@@ -114,18 +144,6 @@ function toggleWatch(cat,name,btn){
   saveWatchlist(w);
 }
 function goCompare(){ if(selected.size<2) return; window.location.href = "/compare?cat="+CAT; }
-async function fetchLive(name, btn){
-  name = decodeURIComponent(name);
-  btn.textContent = "...";
-  btn.disabled = true;
-  try {
-    const r = await fetch("/api/liveprice?q="+encodeURIComponent(name));
-    const j = await r.json();
-    if (j.price) btn.textContent = CURRENCY+Math.round(j.price*100)/100;
-    else { btn.textContent = "No API"; btn.title = j.note || "Live price unavailable"; }
-  } catch(e){ btn.textContent = "Err"; }
-  btn.disabled = false;
-}
 async function showHistory(name){
   name = decodeURIComponent(name);
   document.getElementById("histTitle").textContent = "Price history: "+name;
@@ -146,32 +164,52 @@ async function showHistory(name){
   });
 }
 const PAGE_SIZE = 100;
-let sortKey = "value";
-let sortOrder = "desc";
+const INITIAL = new URLSearchParams(location.search);
+let sortKey = INITIAL.get("sort") || "value";
+let sortOrder = INITIAL.get("order") || "desc";
 
 const COLUMNS = {
-  cpu: ["img","sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","watch","live","buy"],
-  gpu: ["img","sel","name","brand","score","vram_gb","length","price","price_change_pct","value","hist","watch","live","buy"],
-  memory: ["img","sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","live","buy"],
-  storage: ["img","sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","live","buy"],
-  psu: ["img","sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","hist","watch","live","buy"],
-  motherboard: ["img","sel","name","brand","socket","form_factor","max_ram_gb","price","price_change_pct","value","hist","watch","live","buy"],
-  case: ["img","sel","name","brand","form_factor","color","price","price_change_pct","value","hist","watch","live","buy"],
-  cooler: ["img","sel","name","brand","radiator_size","decibels","price","price_change_pct","value","hist","watch","live","buy"],
-  prebuilt: ["img","sel","name","brand","price","price_change_pct","value","hist","watch","live","buy"],
-  monitor: ["img","sel","name","brand","size","resolution","refresh_rate","price","price_change_pct","value","hist","watch","live","buy"],
-  keyboard: ["img","sel","name","brand","style","switches","connection","price","price_change_pct","value","hist","watch","live","buy"],
-  mouse: ["img","sel","name","brand","tracking","connection","max_dpi","price","price_change_pct","value","hist","watch","live","buy"],
-  headphones: ["img","sel","name","brand","form_factor","is_wireless","price","price_change_pct","value","hist","watch","live","buy"],
-  network: ["img","sel","name","brand","protocol","interface","price","price_change_pct","value","hist","watch","live","buy"],
-  ups: ["img","sel","name","brand","capacity_w","capacity_va","price","price_change_pct","value","hist","watch","live","buy"],
-  sound: ["img","sel","name","brand","channels","snr","sample_rate","interface","price","price_change_pct","value","hist","watch","live","buy"],
-  webcam: ["img","sel","name","brand","resolution","connection","price","price_change_pct","value","hist","watch","live","buy"],
-  speakers: ["img","sel","name","brand","configuration","total_wattage","frequency_response","price","price_change_pct","value","hist","watch","live","buy"],
-  external_storage: ["img","sel","name","brand","type","interface","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","live","buy"],
-  router: ["img","sel","name","brand","wireless_standard","bands","ports","price","price_change_pct","value","hist","watch","live","buy"],
-  thermal_paste: ["img","sel","name","brand","price","price_change_pct","value","hist","watch","live","buy"],
-  surge_protector: ["img","sel","name","brand","outlets","joule_rating","price","price_change_pct","value","hist","watch","live","buy"],
+  cpu: ["sel","name","brand","cores","threads","mark","rank","price","price_change_pct","value","hist","watch","buy"],
+  gpu: ["sel","name","brand","score","vram_gb","length","price","price_change_pct","value","hist","watch","buy"],
+  memory: ["sel","name","brand","module_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","buy"],
+  storage: ["sel","name","brand","storage_type","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","buy"],
+  psu: ["sel","name","brand","wattage","efficiency","price_per_watt","price","price_change_pct","value","hist","watch","buy"],
+  motherboard: ["sel","name","brand","socket","form_factor","max_ram_gb","price","price_change_pct","value","hist","watch","buy"],
+  case: ["sel","name","brand","form_factor","color","price","price_change_pct","value","hist","watch","buy"],
+  cooler: ["sel","name","brand","radiator_size","decibels","price","price_change_pct","value","hist","watch","buy"],
+  prebuilt: ["sel","name","brand","price","price_change_pct","value","hist","watch","buy"],
+  monitor: ["sel","name","brand","size","resolution","refresh_rate","price","price_change_pct","value","hist","watch","buy"],
+  keyboard: ["sel","name","brand","style","switches","connection","price","price_change_pct","value","hist","watch","buy"],
+  mouse: ["sel","name","brand","tracking","connection","max_dpi","price","price_change_pct","value","hist","watch","buy"],
+  headphones: ["sel","name","brand","form_factor","is_wireless","price","price_change_pct","value","hist","watch","buy"],
+  network: ["sel","name","brand","protocol","interface","price","price_change_pct","value","hist","watch","buy"],
+  ups: ["sel","name","brand","capacity_w","capacity_va","price","price_change_pct","value","hist","watch","buy"],
+  sound: ["sel","name","brand","channels","snr","sample_rate","interface","price","price_change_pct","value","hist","watch","buy"],
+  webcam: ["sel","name","brand","resolution","connection","price","price_change_pct","value","hist","watch","buy"],
+  speakers: ["sel","name","brand","configuration","total_wattage","frequency_response","price","price_change_pct","value","hist","watch","buy"],
+  external_storage: ["sel","name","brand","type","interface","capacity_gb","price_per_gb","price","price_change_pct","value","hist","watch","buy"],
+  router: ["sel","name","brand","wireless_standard","bands","ports","price","price_change_pct","value","hist","watch","buy"],
+  thermal_paste: ["sel","name","brand","price","price_change_pct","value","hist","watch","buy"],
+  surge_protector: ["sel","name","brand","outlets","joule_rating","price","price_change_pct","value","hist","watch","buy"],
+};
+
+const COL_LABELS = {
+  name: "Name", brand: "Brand", cores: "Cores", threads: "Threads",
+  mark: "CPU Mark", rank: "Rank", score: "G3D Mark", vram_gb: "VRAM (GB)",
+  length: "Length (mm)", price: "Price (est.)", price_change_pct: "Δ%",
+  value: "Value", module_type: "Type", capacity_gb: "Capacity (GB)",
+  price_per_gb: "$/GB", storage_type: "Type", wattage: "Watts",
+  efficiency: "80+ rating", price_per_watt: "$/W", socket: "Socket",
+  form_factor: "Form factor", max_ram_gb: "Max RAM (GB)", color: "Colour",
+  radiator_size: "Radiator (mm)", decibels: "Noise (dB)", size: "Size",
+  resolution: "Resolution", refresh_rate: "Refresh (Hz)", style: "Style",
+  switches: "Switches", connection: "Connection", tracking: "Tracking",
+  max_dpi: "Max DPI", is_wireless: "Wireless", protocol: "Protocol",
+  interface: "Interface", capacity_w: "Capacity (W)", capacity_va: "Capacity (VA)",
+  channels: "Channels", snr: "SNR", sample_rate: "Sample rate",
+  configuration: "Configuration", total_wattage: "Total watts",
+  frequency_response: "Frequency response", wireless_standard: "Wi-Fi standard",
+  bands: "Bands", ports: "Ports", outlets: "Outlets", joule_rating: "Joules",
 };
 
 function buySuffix(cat){
@@ -198,28 +236,36 @@ function buySuffix(cat){
   if (cat==="gpu") return " graphics card";
   return "";
 }
+function buyUrl(name){
+  const template = (RETAILERS[0] || {}).url || "https://www.google.com/search?q={q}";
+  return template.replace("{q}", encodeURIComponent(name + buySuffix(CAT)));
+}
 function buyLinks(name){
   const q = encodeURIComponent(name + buySuffix(CAT));
-  return `<div class="d-flex flex-wrap gap-1">` +
-         `<a href="https://www.amazon.com/s?k=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">Amazon</a>` +
-         `<a href="https://www.newegg.com/p/pl?d=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-success">Newegg</a>` +
-         `<a href="https://www.bhphotovideo.com/c/search?Ntt=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-info">B&H</a>` +
-         `<a href="https://www.bestbuy.com/site/searchpage/pcmcat159500050008?st=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-warning">BestBuy</a>` +
-         `<a href="https://www.microcenter.com/search/search_results.aspx?Ntt=${q}" target="_blank" rel="noopener" class="btn btn-sm btn-secondary">MicroCtr</a>` +
+  const first = RETAILERS[0];
+  if (!first) return "";
+  const rest = RETAILERS.slice(1);
+  return `<div class="d-flex flex-wrap align-items-center gap-1">` +
+         `<a href="${first.url.replace("{q}", q)}" target="_blank" rel="noopener" class="btn btn-sm btn-${first.cls}" aria-label="Search ${esc(name)} on ${esc(first.name)}">${esc(first.name)}</a>` +
+         (rest.length ? `<span class="small">` + rest.map(r => `<a href="${r.url.replace("{q}", q)}" target="_blank" rel="noopener" class="text-decoration-none" aria-label="Search ${esc(name)} on ${esc(r.name)}">${esc(r.name)}</a>`).join(" &middot; ") + `</span>` : "") +
          `</div>`;
 }
 
 function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function jsArg(s){ return encodeURIComponent(s).replace(/'/g,"%27"); }
-function fmt(v){
+function fmt(v, decimals){
   if (v === null || v === undefined) return "";
   if (typeof v === "object") return (v.default ?? v.max ?? JSON.stringify(v));
-  if (typeof v === "number") return (Math.round(v*100)/100);
+  if (typeof v === "number") {
+    const d = decimals !== undefined ? decimals : (Math.abs(v - Math.round(v)) < 1e-9 ? 0 : 2);
+    return v.toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d});
+  }
   return v;
 }
 
 async function loadData(){
   const params = new URLSearchParams();
+  params.set("region", REGION);
   params.set("sort", sortKey);
   params.set("order", sortOrder);
   params.set("limit", PAGE_SIZE);
@@ -241,16 +287,31 @@ async function loadData(){
   }
   const brand = document.getElementById("brand").value;
   if (brand) params.set("filter_brand", brand);
+  const mt = document.getElementById("moduleType");
+  if (mt && mt.value) params.set("filter_module_type", mt.value);
+  const eff = document.getElementById("efficiency");
+  if (eff && eff.value) params.set("filter_efficiency", eff.value);
   const ff = document.getElementById("formFactor");
   if (ff && ff.value) params.set("filter_form_factor", ff.value);
   const st = document.getElementById("storageType");
   if (st && st.value) params.set("filter_storage_type", st.value);
   const pt = document.getElementById("panelType");
   if (pt && pt.value) params.set("filter_panel_type", pt.value);
-  const res = await fetch("/api/data/"+CAT+"?"+params.toString());
-  const j = await res.json();
-  allRows = j.rows;
+  let j;
+  try {
+    const res = await fetch("/api/data/"+CAT+"?"+params.toString());
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    j = await res.json();
+  } catch (e) {
+    document.getElementById("count").textContent = "Could not load parts. Check your connection and refresh the page.";
+    return;
+  }
+  allRows = j.rows || [];
   totalCount = j.total || allRows.length;
+  // Keep the address bar shareable without adding duplicate history entries.
+  const share = new URL(location.href);
+  if (q) share.searchParams.set("q", q); else share.searchParams.delete("q");
+  history.replaceState(null, "", share);
   render();
 }
 
@@ -258,15 +319,14 @@ function render(){
   const cols = COLUMNS[CAT];
   const thead = document.getElementById("thead");
   thead.innerHTML = "<tr>" + cols.map(c=> {
-    if (c==="img") return `<th>Img</th>`;
-    if (c==="sel") return `<th><input type="checkbox" id="selectAll"></th>`;
-    if (c==="hist") return `<th>Hist</th>`;
+    if (c==="sel") return `<th><input type="checkbox" id="selectAll" aria-label="Select all rows"></th>`;
+    if (c==="hist") return `<th>History</th>`;
     if (c==="watch") return `<th>Watch</th>`;
-    if (c==="live") return `<th>Live $</th>`;
-    if (c==="buy") return `<th>Buy</th>`;
+    if (c==="buy") return `<th>Where to buy</th>`;
     if (c==="price_change_pct") return `<th style="cursor:pointer" data-col="${c}">Δ%</th>`;
-    if (c==="price") return `<th style="cursor:pointer" data-col="${c}">Price (est.)</th>`;
-    return `<th style="cursor:pointer" data-col="${c}">${c.replace(/_/g," ")}</th>`;
+    if (c==="price") return `<th style="cursor:pointer" data-col="${c}">${COL_LABELS[c]}</th>`;
+    const label = COL_LABELS[c] || c.replace(/_/g," ").replace(/\b\w/g, ch=>ch.toUpperCase());
+    return `<th style="cursor:pointer" data-col="${c}">${label}</th>`;
   }).join("") + "</tr>";
   const sa = document.getElementById("selectAll");
   if (sa) sa.onchange = (e) => {
@@ -274,24 +334,17 @@ function render(){
     updateCompareBtn();
   };
   const tbody = document.getElementById("tbody");
-  const start = page*PAGE_SIZE;
-  const slice = allRows.slice(start, start+PAGE_SIZE);
+  // The API already paginates; do not slice a second time.
+  const slice = allRows;
   tbody.innerHTML = slice.map(r => "<tr>" + cols.map(c=> {
-    if (c==="img") {
-      const linkParam = r.link || r.source_url ? "&link="+encodeURIComponent(r.link||r.source_url) : "";
-      const buyUrl = "https://www.amazon.com/s?k=" + encodeURIComponent(r.name + buySuffix(CAT));
-      return `<td><a href="${buyUrl}" target="_blank" rel="noopener"><img src="/api/image?q=${encodeURIComponent(r.name)}&cat=${CAT}${linkParam}" alt="" loading="lazy" style="width:48px;height:48px;object-fit:contain;background:#0f172a;border-radius:4px" onerror="this.onerror=null;this.src='/api/placeholder?cat=${CAT}'"></a></td>`;
-    }
     if (c==="name") {
-      const buyUrl = "https://www.amazon.com/s?k=" + encodeURIComponent(r.name + buySuffix(CAT));
-      return `<td><a href="${buyUrl}" target="_blank" rel="noopener" class="text-decoration-none">${fmt(r[c])}</a></td>`;
+      return `<td><a href="${buyUrl(r.name)}" target="_blank" rel="noopener" class="text-decoration-none">${fmt(r[c])}</a></td>`;
     }
-    if (c==="sel") return `<td><input type="checkbox" class="rowSel" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
-    if (c==="hist") return `<td><button class="btn btn-sm btn-outline-info" title="Price history" aria-label="Price history" onclick="showHistory('${jsArg(r.name)}')">H</button></td>`;
-  if (c==="live") return `<td><button class="btn btn-sm btn-outline-secondary" onclick="fetchLive('${jsArg(r.name)}', this)">Check</button></td>`;
+    if (c==="sel") return `<td><input type="checkbox" class="rowSel" aria-label="Select ${esc(r.name)}" data-name="${encodeURIComponent(r.name)}" ${selected.has(r.name)?"checked":""}></td>`;
+    if (c==="hist") return `<td><button class="btn btn-sm btn-outline-info" title="Price history" aria-label="Price history for ${esc(r.name)}" onclick="showHistory('${jsArg(r.name)}')">H</button></td>`;
   if (c==="watch") {
     const isW = isWatched(CAT, r.name);
-    return `<td><button class="btn btn-sm ${isW?'btn-warning':'btn-outline-warning'}" onclick="toggleWatch('${CAT}','${jsArg(r.name)}',this)">${isW?'★':'☆'}</button></td>`;
+    return `<td><button class="btn btn-sm ${isW?'btn-warning':'btn-outline-warning'}" title="${isW?'Remove from watchlist':'Add to watchlist'}" aria-label="${isW?'Remove '+esc(r.name)+' from watchlist':'Add '+esc(r.name)+' to watchlist'}" aria-pressed="${isW}" onclick="toggleWatch('${CAT}','${jsArg(r.name)}',this)">${isW?'★':'☆'}</button></td>`;
   }
     if (c==="buy") {
       if (CAT === "prebuilt") return `<td><a href="${r.link||r.source_url}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">View deal</a></td>`;
@@ -299,26 +352,35 @@ function render(){
     }
     if (c==="price_change_pct") {
       const v = r[c];
-      if (v === null || v === undefined) return `<td class="muted">-</td>`;
-      const color = v < 0 ? "#22c55e" : (v > 0 ? "#ef4444" : "#94a3b8");
+      // A jump larger than 50% is almost always a source/variant change, not
+      // a real price move. Hide it instead of alarming the buyer.
+      if (v === null || v === undefined || Math.abs(v) > 50) {
+        return `<td class="muted" title="No reliable price change for this row">—</td>`;
+      }
+      const cls = v < 0 ? "price-down" : (v > 0 ? "price-up" : "price-flat");
       const arrow = v < 0 ? "↓" : (v > 0 ? "↑" : "");
       const sign = v > 0 ? "+" : "";
-      return `<td style="color:${color};font-weight:600">${arrow}${sign}${fmt(v)}%</td>`;
+      return `<td class="${cls}">${arrow}${sign}${fmt(v)}%</td>`;
     }
-    if (c==="price" && (r[c]===null || r[c]===undefined)) return `<td class="muted">no price</td>`;
+    if (c==="price") return r[c]===null || r[c]===undefined ? `<td class="muted">no price</td>` : `<td>${CURRENCY}${fmt(r[c],2)}</td>`;
+    if (c==="value") return `<td>${fmt(r[c],1)}</td>`;
+    if (c==="price_per_gb") return `<td>${fmt(r[c],3)}</td>`;
+    if (c==="price_per_watt") return `<td>${fmt(r[c],2)}</td>`;
+    if (c==="mark" || c==="score") return `<td>${fmt(r[c],0)}</td>`;
+    if (c==="capacity_gb" || c==="max_ram_gb" || c==="wattage") return `<td>${fmt(r[c],0)}</td>`;
     return `<td>${fmt(r[c])}</td>`;
   }).join("") + "</tr>").join("");
   document.querySelectorAll(".rowSel").forEach(cb=>{
     cb.onchange = (e) => { toggleSel(decodeURIComponent(cb.dataset.name), cb.checked); updateCompareBtn(); };
   });
-  document.getElementById("count").textContent = totalCount + " rows";
+  document.getElementById("count").textContent = totalCount + (totalCount === 1 ? " part" : " parts");
   document.getElementById("pageinfo").textContent = `Page ${page+1} of ${Math.max(1, Math.ceil(totalCount/PAGE_SIZE))}`;
   updateCompareBtn();
   // click sort
   thead.querySelectorAll("th").forEach(th=>{
     th.onclick = () => {
       const c = th.dataset.col;
-      if (!c || c === "img" || c === "sel" || c === "buy") return;
+      if (!c || c === "sel" || c === "buy") return;
       if (sortKey === c) sortOrder = sortOrder === "desc" ? "asc" : "desc";
       else { sortKey = c; sortOrder = "desc"; }
       document.getElementById("sort").value = sortKey;
@@ -328,22 +390,31 @@ function render(){
   });
 }
 
-document.getElementById("q").addEventListener("input", ()=>{ page=0; loadData(); });
-document.getElementById("minPrice").addEventListener("input", ()=>{ page=0; loadData(); });
-document.getElementById("maxPrice").addEventListener("input", ()=>{ page=0; loadData(); });
+function scheduleLoad(){
+  clearTimeout(window._loadTimer);
+  window._loadTimer = setTimeout(()=>{ page=0; loadData(); }, 250);
+}
+
+document.getElementById("q").addEventListener("input", scheduleLoad);
+document.getElementById("minPrice").addEventListener("input", scheduleLoad);
+document.getElementById("maxPrice").addEventListener("input", scheduleLoad);
 const _minC = document.getElementById("minCores");
-if (_minC) _minC.addEventListener("input", ()=>{ page=0; loadData(); });
+if (_minC) _minC.addEventListener("input", scheduleLoad);
 const _maxC = document.getElementById("maxCores");
-if (_maxC) _maxC.addEventListener("input", ()=>{ page=0; loadData(); });
+if (_maxC) _maxC.addEventListener("input", scheduleLoad);
 for (const id of ["minVram","maxVram","minLen","maxLen"]) {
   const el = document.getElementById(id);
-  if (el) el.addEventListener("input", ()=>{ page=0; loadData(); });
+  if (el) el.addEventListener("input", scheduleLoad);
 }
 document.getElementById("brand").addEventListener("change", ()=>{ page=0; loadData(); });
 const _ff = document.getElementById("formFactor");
 if (_ff) _ff.addEventListener("change", ()=>{ page=0; loadData(); });
 const _st = document.getElementById("storageType");
 if (_st) _st.addEventListener("change", ()=>{ page=0; loadData(); });
+const _mt = document.getElementById("moduleType");
+if (_mt) _mt.addEventListener("change", ()=>{ page=0; loadData(); });
+const _eff = document.getElementById("efficiency");
+if (_eff) _eff.addEventListener("change", ()=>{ page=0; loadData(); });
 const _pt = document.getElementById("panelType");
 if (_pt) _pt.addEventListener("change", ()=>{ page=0; loadData(); });
 document.getElementById("eligibleOnly").addEventListener("change", ()=>{ page=0; loadData(); });
@@ -352,14 +423,47 @@ document.getElementById("order").addEventListener("change", (e)=>{ sortOrder=e.t
 document.getElementById("prev").onclick = ()=>{ if(page>0){page--; loadData();} };
 document.getElementById("next").onclick = ()=>{ if((page+1)*PAGE_SIZE < totalCount){page++; loadData();} };
 
-// populate brands
+// Restore shareable filter values from the URL.
+(function initFromUrl(){
+  const set = (id, param) => {
+    const el = document.getElementById(id);
+    const value = INITIAL.get(param);
+    if (el && value) el.value = value;
+  };
+  set("minPrice", "min_price");
+  set("maxPrice", "max_price");
+  set("minCores", "min_cores");
+  set("maxCores", "max_cores");
+  set("minVram", "min_vram");
+  set("maxVram", "max_vram");
+  set("minLen", "min_length");
+  set("maxLen", "max_length");
+  const broker = document.getElementById("eligibleOnly");
+  if (broker && INITIAL.get("eligible") === "0") broker.checked = false;
+  const sort = document.getElementById("sort");
+  if (sort) sort.value = sortKey;
+  const order = document.getElementById("order");
+  if (order) order.value = sortOrder;
+})();
+
+// Populate filter options from the dataset.
 fetch("/api/meta/"+CAT).then(r=>r.json()).then(j=>{
   const sel = document.getElementById("brand");
   (j.brand||[]).forEach(b=>{ const o=document.createElement("option"); o.value=b; o.textContent=b; sel.appendChild(o); });
   const ff = document.getElementById("formFactor");
   if (ff) (j.form_factor||[]).forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; ff.appendChild(o); });
+  const mt = document.getElementById("moduleType");
+  if (mt) (j.module_type||[]).forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; mt.appendChild(o); });
+  const eff = document.getElementById("efficiency");
+  if (eff) (j.efficiency||[]).forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; eff.appendChild(o); });
   const pt = document.getElementById("panelType");
   if (pt) (j.panel_type||[]).forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; pt.appendChild(o); });
+  // Apply URL values that depend on options being present.
+  if (sel && INITIAL.get("brand")) sel.value = INITIAL.get("brand");
+  if (ff && INITIAL.get("form_factor")) ff.value = INITIAL.get("form_factor");
+  if (mt && INITIAL.get("module_type")) mt.value = INITIAL.get("module_type");
+  if (eff && INITIAL.get("efficiency")) eff.value = INITIAL.get("efficiency");
+  if (pt && INITIAL.get("panel_type")) pt.value = INITIAL.get("panel_type");
 });
 
 loadData();

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}How We Rank Parts - PC Parts Deal Finder{% endblock %}
+{% block content %}
+<div class="container" style="max-width:820px">
+  <h1 class="h2">How we rank parts</h1>
+  <p class="muted">The goal is simple: show useful performance per dollar, not paid placements. These rules explain exactly what the rankings do and do not include.</p>
+
+  <h2 class="h4 mt-4">Sources</h2>
+  <ul>
+    <li><strong>CPU scores:</strong> PassMark CPU Mark.</li>
+    <li><strong>GPU scores:</strong> PassMark G3D Mark.</li>
+    <li><strong>Prices and specs:</strong> public PCPartPicker listings and PassMark price data, refreshed by the scraper.</li>
+    <li><strong>Deals:</strong> Slickdeals, filtered to PC hardware keywords.</li>
+    <li><strong>Currency:</strong> ECB daily reference rates for non-USD regions.</li>
+  </ul>
+
+  <h2 class="h4 mt-4">What counts as "current"</h2>
+  <p>Price rankings include consumer parts that are still relevant to a desktop build:</p>
+  <ul>
+    <li>AMD Ryzen 5000, 7000, 8000 and 9000 series; Intel 12th generation and newer.</li>
+    <li>NVIDIA RTX 40 and 50 series, AMD RX 7000 and 9000 series, Intel Arc A and B series.</li>
+    <li>No server or workstation CPUs (EPYC, Xeon, Threadripper), laptop parts, or older GPU generations in the "best value" lists.</li>
+  </ul>
+  <p class="muted small">Older parts remain visible in the full category tables. Use the "Current &amp; priced parts only" checkbox to switch between the full dataset and the current view.</p>
+
+  <h2 class="h4 mt-4">Quality floors</h2>
+  <ul>
+    <li><strong>PSUs:</strong> 80+ Bronze or better, at least 450 W, and known low-end lines are excluded from the front-page picks.</li>
+    <li><strong>Storage:</strong> the front page shows NVMe (M.2) drives only; the full table still includes SATA drives.</li>
+    <li><strong>RAM:</strong> 16 GB or more, DDR4 or DDR5.</li>
+    <li><strong>CPUs and GPUs:</strong> parts must have a real price and pass the generation rules above.</li>
+  </ul>
+
+  <h2 class="h4 mt-4">Freshness</h2>
+  <p>Each page shows when prices were last refreshed. If the data is more than 14 days old, the value rankings are paused and a warning is shown rather than presenting stale numbers as current.</p>
+  <p>Price-change percentages are hidden when the previous snapshot and the current price differ by more than 50%. A jump that large is usually a source or product-variant change, not a real market move.</p>
+
+  <h2 class="h4 mt-4">Regions</h2>
+  <p>Retailer links follow the selected region. Price data is collected per region on demand; if a region has no snapshot yet, the page says so instead of showing another region's prices in the wrong currency.</p>
+  <p>Deals come from Slickdeals and are US listings, so deal prices are always labelled in USD.</p>
+  <p>Even fresh scraped prices are estimates. Retailer stock and pricing change constantly, so always confirm the price on the retailer page before buying.</p>
+
+  <h2 class="h4 mt-4">What we do not do</h2>
+  <ul>
+    <li>We do not accept payment for a ranking position.</li>
+    <li>We do not claim that a scraped price is live retailer inventory.</li>
+    <li>We do not send email alerts yet. The watchlist is stored locally in your browser and is checked when you open the watchlist page.</li>
+  </ul>
+
+  <p class="mt-4"><a href="/sources">See the data sources and cache status</a> &middot; <a href="/">Back to the dashboard</a></p>
+</div>
+{% endblock %}

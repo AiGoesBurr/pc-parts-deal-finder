@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
 <meta name="description" content="Compare PC parts by value: CPUs, GPUs, RAM, storage, PSUs and more, ranked by benchmark score per dollar. Track prices and find the best deals.">
 <meta property="og:title" content="PC Parts Deal Finder">
-<meta property="og:description" content="Compare PC parts by value and find the best deals.">
+<meta property="og:description" content="Compare PC parts by value and find the best deals, with honest price estimates and region-aware retailer links.">
 <meta property="og:type" content="website">
+<meta property="og:image" content="{{ request.url_root.rstrip('/') }}/static/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="canonical" href="{{ request.base_url }}">
+<link rel="icon" type="image/png" href="/static/icons/icon-192.png">
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#1c1c1e">
 <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
@@ -18,10 +22,10 @@
     --bg-soft: #1e293b;
     --card: #1e293b;
     --text: #f1f5f9;
-    --muted: #94a3b8;
+    --muted: #a7b4c8;
     --border: #334155;
-    --accent: #3b82f6;
-    --accent-hover: #2563eb;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
   }
   body.light {
     --bg: #f8fafc;
@@ -36,14 +40,21 @@
   body { background: var(--bg); color: var(--text); }
   .navbar { background: var(--bg-soft); border-bottom: 1px solid var(--border); }
   .card { background: var(--card); border: 1px solid var(--border); color: var(--text); }
-  .table { color: var(--text); }
-  .table thead th { color: var(--muted); border-color: var(--border); font-weight: 600; }
+  .table { color: var(--text); --bs-table-bg: transparent; --bs-table-color: var(--text); --bs-table-hover-color: var(--text); --bs-table-hover-bg: rgba(96,165,250,0.08); }
+  .table thead th { --bs-table-color: #c3cfdf; color: #c3cfdf; border-color: var(--border); font-weight: 600; }
+  .table > :not(caption) > * > * { color: var(--bs-table-color); }
+  .price-down { color: #22c55e; font-weight: 600; }
+  .price-up { color: #f87171; font-weight: 600; }
+  .price-flat { color: var(--muted); font-weight: 600; }
+  body.light .table thead th { --bs-table-color: #475569; color: #475569; }
+  body.light .price-down { color: #15803d; }
+  body.light .price-up { color: #b91c1c; }
   .table td, .table th { border-color: var(--border); vertical-align: middle; }
   .badge-src { font-size: .7rem; }
   .muted { color: var(--muted); }
   a { color: var(--accent); }
-  .hero { background: linear-gradient(135deg, var(--bg-soft), var(--bg)); padding: 2rem 0; }
-  body.light .navbar .nav-link, body.light .navbar-brand, body.light .navbar-toggler { color: var(--text) !important; }
+  .hero { background: linear-gradient(135deg, var(--bg-soft), var(--bg)); padding: 2.25rem 0; }
+  body.light .navbar .nav-link, body.light .navbar .navbar-nav .nav-link, body.light .navbar-brand, body.light .navbar-toggler { color: var(--text) !important; }
   body.light .navbar-toggler-icon { filter: invert(1); }
   body.light .card { box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   body.light .filter-bar input, body.light .filter-bar select { background: #ffffff; color: var(--text); border: 1px solid var(--border); }
@@ -54,103 +65,144 @@
   body.light .dropdown-item { color: var(--text); }
   body.light .dropdown-item:hover { background: #e2e8f0; }
   .filter-bar input, .filter-bar select { background: var(--bg-soft); color: var(--text); border: 1px solid var(--border); }
+  .form-control::placeholder { color: #94a3b8; opacity: 1; }
+  body.light .form-control::placeholder { color: #64748b; }
   .stat { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+  .nav-search { width: 220px; }
+  .freshness { font-size: .85rem; }
+  .freshness .dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; background: #22c55e; margin-right: .35rem; }
+  .freshness.warn .dot { background: #f59e0b; }
+  .freshness.bad .dot { background: #ef4444; }
+  footer { border-top: 1px solid var(--border); }
   @media (max-width: 768px) {
     .table { font-size: 0.8rem; }
     .table img { width: 36px; height: 36px; }
     .btn-sm { padding: 0.15rem 0.4rem; font-size: 0.75rem; }
     .navbar-brand { font-size: 1rem; }
     .filter-bar .form-control, .filter-bar .form-select { font-size: 0.85rem; }
+    h1 { font-size: 1.5rem; }
     h2 { font-size: 1.3rem; }
+    .nav-search { width: 100%; }
   }
 </style>
 {% if adsense_client %}
 <meta name="google-adsense-account" content="{{ adsense_client }}">
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ adsense_client }}" crossorigin="anonymous"></script>
 {% endif %}
 {% block head %}{% endblock %}
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark mb-3">
+<a class="visually-hidden-focusable" href="#main">Skip to content</a>
+<nav class="navbar navbar-expand-lg navbar-dark mb-3" aria-label="Main navigation">
   <div class="container-fluid">
     <a class="navbar-brand" href="/">PC Parts Deal Finder</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-controls="nav" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="nav">
-      <select class="form-select form-select-sm me-2" style="width:auto" onchange="location.href=location.pathname+'?region='+this.value">
+      <select class="form-select form-select-sm me-2 mt-1 mt-lg-0" style="width:auto" aria-label="Retail region" onchange="setRegion(this.value)">
         {% for r in ['us','uk','ca','au','de','fr','es','it','in','nz','ie','be','se'] %}
-        <option value="{{ r }}" {% if region==r %}selected{% endif %}>{{ r|upper }}</option>
+        <option value="{{ r }}" {% if region==r %}selected{% endif %}>{{ r|upper }}{% if r not in available_regions %} (no data){% endif %}</option>
         {% endfor %}
       </select>
-      <form class="d-flex me-3" action="/search" method="get">
-        <input class="form-control form-control-sm me-2" type="search" name="q" placeholder="Search components..." aria-label="Search">
+      <form class="d-flex nav-search me-lg-3 my-2 my-lg-0" action="/search" method="get" role="search">
+        <input class="form-control form-control-sm me-2" type="search" name="q" placeholder="Search parts..." aria-label="Search parts" value="{{ request.args.get('q','') }}">
         <button class="btn btn-sm btn-primary" type="submit">Search</button>
       </form>
       <ul class="navbar-nav me-auto">
-        <li class="nav-item"><a class="nav-link" href="/">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="/deals">Deals</a></li>
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Categories</a>
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Parts</a>
           <ul class="dropdown-menu dropdown-menu-dark">
             {% for k, m in cats.items() %}
             <li><a class="dropdown-item" href="/category/{{ k }}">{{ m.title }}</a></li>
             {% endfor %}
           </ul>
         </li>
-      </ul>
-      <ul class="navbar-nav">
-        <li class="nav-item"><a class="nav-link" href="/deals">Deals</a></li>
-        <li class="nav-item"><a class="nav-link" href="/leaderboard">Leaderboard</a></li>
-        <li class="nav-item"><a class="nav-link" href="/compare?cat=cpu">Compare</a></li>
         <li class="nav-item"><a class="nav-link" href="/build">Build</a></li>
-        <li class="nav-item"><a class="nav-link" href="/buildtemplates">Templates</a></li>
-        <li class="nav-item"><a class="nav-link" href="/savedbuilds">Saved Builds</a></li>
-        <li class="nav-item"><a class="nav-link" href="/watchlist">Watchlist</a></li>
-        <li class="nav-item"><a class="nav-link" href="/compat">Compat</a></li>
-        <li class="nav-item"><a class="nav-link" href="/sources">Sources</a></li>
-        <li class="nav-item"><a class="nav-link" href="/install">Install</a></li>
-        <li class="nav-item"><button class="btn btn-sm btn-outline-light ms-2" id="themeToggle" onclick="toggleTheme()">Light</button></li>
-        {% if is_local %}
-        <li class="nav-item">
-          <form method="post" action="/refresh" class="d-inline">
-            <button class="btn btn-sm btn-primary ms-2" type="submit">Refresh data</button>
-          </form>
+        <li class="nav-item"><a class="nav-link" href="/compare?cat=cpu">Compare</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">More</a>
+          <ul class="dropdown-menu dropdown-menu-dark">
+            <li><a class="dropdown-item" href="/leaderboard">Leaderboard</a></li>
+            <li><a class="dropdown-item" href="/guide/best-budget-gaming-pc">Buying guides</a></li>
+            <li><a class="dropdown-item" href="/buildtemplates">Build templates</a></li>
+            <li><a class="dropdown-item" href="/savedbuilds">Saved builds</a></li>
+            <li><a class="dropdown-item" href="/watchlist">Watchlist</a></li>
+            <li><a class="dropdown-item" href="/compat">Compatibility checker</a></li>
+            <li><a class="dropdown-item" href="/install">Install app</a></li>
+            <li><a class="dropdown-item" href="/sources">Sources</a></li>
+            <li><a class="dropdown-item" href="/methodology">How we rank</a></li>
+          </ul>
         </li>
-        {% endif %}
       </ul>
+      <div class="d-flex align-items-center gap-2 mt-2 mt-lg-0">
+        <button class="btn btn-sm btn-outline-light" id="themeToggle" onclick="toggleTheme()">Light</button>
+        {% if show_refresh %}
+        <form method="post" action="/refresh" class="d-inline">
+          <button class="btn btn-sm btn-primary" type="submit">Refresh data</button>
+        </form>
+        {% endif %}
+      </div>
     </div>
   </div>
 </nav>
-<div class="container-fluid">
+<main id="main" class="container-fluid">
 {% block content %}{% endblock %}
-</div>
+</main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>const CURRENCY = "{{ currency_symbol }}";
-if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(()=>{})); }</script>
 <script>
+const CURRENCY = "{{ currency_symbol }}";
+const ADSENSE_CLIENT = "{{ adsense_client }}";
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(()=>{})); }
+
+function setRegion(value){
+  document.cookie = "region=" + encodeURIComponent(value) + ";path=/;max-age=31536000;samesite=Lax";
+  const url = new URL(window.location.href);
+  url.searchParams.set("region", value);
+  window.location.href = url.toString();
+}
 function applyTheme(t){
   if (t === "light") { document.body.classList.add("light"); document.getElementById("themeToggle").textContent = "Dark"; }
   else { document.body.classList.remove("light"); document.getElementById("themeToggle").textContent = "Light"; }
 }
 function toggleTheme(){ const cur = document.body.classList.contains("light") ? "light" : "dark"; const next = cur==="light"?"dark":"light"; localStorage.setItem("theme", next); applyTheme(next); }
 (function(){ applyTheme(localStorage.getItem("theme") || "dark"); })();
-</script>
-{% block scripts %}{% endblock %}
-<footer class="text-center muted small py-3 mt-4" style="border-top:1px solid #334155">
-  <div>Visitors: {{ visitor_count }} &middot; <a href="/sources">Sources</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/sitemap.xml">Sitemap</a></div>
-</footer>
-<div id="cookieBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#f1f5f9;padding:12px 16px;z-index:9999;border-top:1px solid #334155;font-size:0.9rem">
-  <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-2">
-    <span>This site uses cookies for ads and analytics. <a href="/privacy" style="color:#60a5fa">Learn more</a>.</span>
-    <button class="btn btn-sm btn-primary" onclick="acceptCookies()">Accept</button>
-  </div>
-</div>
-<script>
+
+function loadAds(){
+  if (!ADSENSE_CLIENT || window.__adsLoaded) return;
+  window.__adsLoaded = true;
+  const s = document.createElement("script");
+  s.async = true;
+  s.crossOrigin = "anonymous";
+  s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + encodeURIComponent(ADSENSE_CLIENT);
+  document.head.appendChild(s);
+}
+function setConsent(value){
+  localStorage.setItem("cookieConsent", value);
+  const banner = document.getElementById("cookieBanner");
+  if (banner) banner.style.display = "none";
+  if (value === "accepted") loadAds();
+}
 (function(){
-  if (!localStorage.getItem("cookieConsent")) {
-    var b = document.getElementById("cookieBanner");
-    if (b) b.style.display = "block";
+  const consent = localStorage.getItem("cookieConsent");
+  if (consent === "accepted" || consent === "1") loadAds();
+  if (!consent) {
+    const banner = document.getElementById("cookieBanner");
+    if (banner) banner.style.display = "block";
   }
 })();
-function acceptCookies(){ localStorage.setItem("cookieConsent","1"); var b=document.getElementById("cookieBanner"); if(b) b.style.display="none"; }
 </script>
+{% block scripts %}{% endblock %}
+<footer class="text-center muted small py-3 mt-4">
+  <div class="mb-1">Prices are estimates from public benchmark and retailer data. Always confirm the live price at the retailer.</div>
+  <div><a href="/methodology">How we rank</a> &middot; <a href="/sources">Sources</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/sitemap.xml">Sitemap</a></div>
+</footer>
+<div id="cookieBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg-soft);color:var(--text);padding:12px 16px;z-index:9999;border-top:1px solid var(--border);font-size:0.9rem" role="dialog" aria-label="Cookie choices">
+  <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span>We use cookies for ads and analytics. Advertising stays off unless you accept. <a href="/privacy">Read the privacy policy</a>.</span>
+    <span class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-light" onclick="setConsent('declined')">Decline</button>
+      <button class="btn btn-sm btn-primary" onclick="setConsent('accepted')">Accept</button>
+    </span>
+  </div>
+</div>
 </body>
 </html>

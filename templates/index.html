@@ -1,104 +1,187 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - PC Parts Deal Finder{% endblock %}
+{% block title %}PC Part Deals & Value Rankings - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<div id="loadingBanner" class="alert alert-info" style="display:none">Data is being gathered. The page will refresh when ready.</div>
+<div id="loadingBanner" class="alert alert-info" style="display:none">New data is being gathered. This page will refresh when it is ready.</div>
 {% for n in info.notes %}<div class="alert alert-warning small">{{ n }}</div>{% endfor %}
+
 <div class="hero mb-4 rounded">
   <div class="container">
-    <h1 class="display-6">Best bang-for-your-buck PC parts</h1>
-    <p class="muted">Aggregated from reliable sources: PassMark CPU/GPU benchmarks and PCPartPicker price data.</p>
-    <p class="muted small">Prices are aggregated from sources and may lag current retailer pricing. Use the Buy links on each part for live prices and inventory.</p>
-    <div class="row g-3 mt-2">
-      {% for k, m in cats.items() %}
-      <div class="col-6 col-md-3 col-lg-2">
-        <a href="/category/{{ k }}" class="text-decoration-none">
-          <div class="card p-3 text-center h-100">
-            <div class="stat">{{ info.counts.get(m.key, 0) }}</div>
-            <div class="muted small">{{ m.title }}</div>
-          </div>
-        </a>
-      </div>
-      {% endfor %}
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <h1 class="display-6 mb-0">Find the best PC part for your money</h1>
+      {% if data_age_days is not none %}
+      <span class="freshness {% if data_age_days > 14 %}bad{% elif data_age_days > 1 %}warn{% endif %}">
+        <span class="dot"></span>Prices updated {{ data_saved_ts|ago }}
+      </span>
+      {% endif %}
     </div>
-    <div class="muted small mt-3">Last updated: {{ info.saved_at or 'never' }}</div>
+    <p class="muted mb-1">Value rankings built from PassMark benchmarks and public PCPartPicker pricing, not paid placements.</p>
+    <p class="muted small mb-3">Estimates only. Confirm the live price at the retailer before buying.</p>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-primary" href="/build">Find my best build</a>
+      <a class="btn btn-outline-light" href="/deals">Browse today's deals</a>
+      <a class="btn btn-outline-light" href="/category/cpu">Browse parts</a>
+    </div>
   </div>
 </div>
+
+{% if not data_saved_ts %}
+<div class="alert alert-info">
+  <strong>No price data for {{ region|upper }} yet.</strong>
+  The scraper has been asked to gather this region. Check back in a few minutes, or switch to <a href="{{ request.path }}?region=us">US data</a>.
+</div>
+{% elif not prices_are_recent %}
+<div class="alert alert-warning">
+  <strong>Price rankings are paused.</strong>
+  The last successful price update was {{ data_saved_ts|ago }}.
+  We hide value rankings rather than show potentially misleading prices. <a href="/sources">See data status</a>.
+</div>
+{% endif %}
 
 <div class="row g-4">
   <div class="col-lg-6">
-    <div class="card p-3">
-      <h5>Best CPUs <span class="muted small">(by PassMark CPU Mark)</span> <a href="/category/cpu" class="small float-end">View all &rarr;</a></h5>
-      <div class="table-responsive"><table class="table table-sm">
-        <thead><tr><th>CPU</th><th>Mark</th><th>Price</th></tr></thead>
+    <div class="card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div>
+          <h2 class="h5 mb-0">Best value CPUs</h2>
+          <div class="muted small">Performance per dollar, consumer desktop parts</div>
+        </div>
+        <a href="/category/cpu" class="small text-nowrap">View all CPUs &rarr;</a>
+      </div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th scope="col">CPU</th><th scope="col" class="text-end">Mark/$</th><th scope="col" class="text-end">Price</th></tr></thead>
         <tbody>
-        {% for r in best_cpu %}
-        <tr><td><a href="/category/cpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.mark }}</td><td>{% if r.price %}{{ currency_symbol }}{{ r.price }}{% else %}-{% endif %}</td></tr>
+        {% for r in top_cpu %}
+        <tr>
+          <td><a href="/category/cpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td>
+          <td class="text-end">{{ r.value|num(0) }}</td>
+          <td class="text-end">{{ r.price|money }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="muted">No current priced CPUs available.</td></tr>
         {% endfor %}
         </tbody>
       </table></div>
     </div>
   </div>
   <div class="col-lg-6">
-    <div class="card p-3">
-      <h5>Best GPUs <span class="muted small">(by PassMark G3D Mark)</span> <a href="/category/gpu" class="small float-end">View all &rarr;</a></h5>
-      <div class="table-responsive"><table class="table table-sm">
-        <thead><tr><th>GPU</th><th>Score</th><th>Price</th></tr></thead>
+    <div class="card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div>
+          <h2 class="h5 mb-0">Best value GPUs</h2>
+          <div class="muted small">G3D score per dollar, current retail generations</div>
+        </div>
+        <a href="/category/gpu" class="small text-nowrap">View all GPUs &rarr;</a>
+      </div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th scope="col">GPU</th><th scope="col" class="text-end">Score/$</th><th scope="col" class="text-end">Price</th></tr></thead>
         <tbody>
-        {% for r in best_gpu %}
-        <tr><td><a href="/category/gpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.score }}</td><td>{% if r.price %}{{ currency_symbol }}{{ r.price }}{% else %}-{% endif %}</td></tr>
+        {% for r in top_gpu %}
+        <tr>
+          <td><a href="/category/gpu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td>
+          <td class="text-end">{{ r.value|num(0) }}</td>
+          <td class="text-end">{{ r.price|money }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="muted">No current priced GPUs available.</td></tr>
         {% endfor %}
         </tbody>
       </table></div>
     </div>
   </div>
-  {% if newest_deal %}
+
   <div class="col-12">
     <div class="card p-3">
-      <h5>Newest deal <a href="/deals" class="small float-end">All deals &rarr;</a></h5>
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div>
+          <h2 class="h5 mb-0">Latest PC hardware deal</h2>
+          <div class="muted small">Deals are filtered to PC parts and refreshed every 10 minutes.</div>
+        </div>
+        <a href="/deals" class="small">All deals &rarr;</a>
+      </div>
+      {% if newest_deal %}
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
           <a href="{{ newest_deal.link }}" target="_blank" rel="noopener" class="text-decoration-none fw-semibold">{{ newest_deal.title }}</a>
-          <div class="muted small">{{ newest_deal.pubDate }}</div>
+          <div class="muted small">{{ newest_deal.merchant }} &middot; {{ newest_deal.pubDate|ago }}</div>
         </div>
-        {% if newest_deal.price %}<div class="fs-5">{{ currency_symbol }}{{ newest_deal.price }}</div>{% endif %}
+        {% if newest_deal.price %}<div class="fs-5">{{ '$' }}{{ newest_deal.price|num(2) }} <span class="muted small">USD</span></div>{% endif %}
       </div>
+      {% else %}
+      <p class="muted small mb-0">No matching deals are available right now. <a href="/deals">Check the deals page</a>.</p>
+      {% endif %}
     </div>
   </div>
-  {% endif %}
+
   <div class="col-lg-4">
-    <div class="card p-3">
-      <h5>Cheapest RAM ($/GB) <a href="/category/memory" class="small float-end">View all &rarr;</a></h5>
-      <div class="table-responsive"><table class="table table-sm">
-        <thead><tr><th>Name</th><th>$/GB</th><th>Cap</th></tr></thead>
+    <div class="card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div>
+          <h2 class="h5 mb-0">Cheapest RAM</h2>
+          <div class="muted small">16 GB+ DDR4/DDR5, per GB</div>
+        </div>
+        <a href="/category/memory" class="small text-nowrap">All RAM &rarr;</a>
+      </div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th scope="col">Name</th><th scope="col" class="text-end">$/GB</th><th scope="col">Type</th></tr></thead>
         <tbody>
         {% for r in top_mem %}
-        <tr><td class="small"><a href="/category/memory?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.price_per_gb }}</td><td>{{ r.capacity_gb }}GB</td></tr>
+        <tr>
+          <td class="small"><a href="/category/memory?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td>
+          <td class="text-end">{{ r.price_per_gb|num(2) }}</td>
+          <td class="small">{{ r.module_type }}{% if r.speed_ghz %} {{ r.speed_ghz|num(1) }} GHz{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="muted">No current RAM prices available.</td></tr>
         {% endfor %}
         </tbody>
       </table></div>
     </div>
   </div>
   <div class="col-lg-4">
-    <div class="card p-3">
-      <h5>Cheapest storage ($/GB) <a href="/category/storage" class="small float-end">View all &rarr;</a></h5>
-      <div class="table-responsive"><table class="table table-sm">
-        <thead><tr><th>Name</th><th>$/GB</th><th>Type</th></tr></thead>
+    <div class="card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div>
+          <h2 class="h5 mb-0">Cheapest NVMe SSDs</h2>
+          <div class="muted small">M.2 NVMe only &middot; price-only ranking</div>
+        </div>
+        <a href="/category/storage" class="small text-nowrap">All storage &rarr;</a>
+      </div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th scope="col">Name</th><th scope="col" class="text-end">$/GB</th><th scope="col" class="text-end">Capacity</th></tr></thead>
         <tbody>
         {% for r in top_stor %}
-        <tr><td class="small"><a href="/category/storage?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.price_per_gb }}</td><td>{{ r.storage_type }}</td></tr>
+        <tr>
+          <td class="small"><a href="/category/storage?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td>
+          <td class="text-end">{{ r.price_per_gb|num(3) }}</td>
+          <td class="text-end">{{ r.capacity_gb|num(0) }} GB</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="muted">No current NVMe prices available.</td></tr>
         {% endfor %}
         </tbody>
       </table></div>
     </div>
   </div>
   <div class="col-lg-4">
-    <div class="card p-3">
-      <h5>Best PSU ($/W) <a href="/category/psu" class="small float-end">View all &rarr;</a></h5>
-      <div class="table-responsive"><table class="table table-sm">
-        <thead><tr><th>Name</th><th>$/W</th><th>W</th></tr></thead>
+    <div class="card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div>
+          <h2 class="h5 mb-0">Best value PSUs</h2>
+          <div class="muted small">80+ Bronze or better, watts per dollar</div>
+        </div>
+        <a href="/category/psu" class="small text-nowrap">All PSUs &rarr;</a>
+      </div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th scope="col">Name</th><th scope="col" class="text-end">W/$</th><th scope="col" class="text-end">Watts</th></tr></thead>
         <tbody>
         {% for r in top_psu %}
-        <tr><td class="small"><a href="/category/psu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td><td>{{ r.price_per_watt }}</td><td>{{ r.wattage }}</td></tr>
+        <tr>
+          <td class="small"><a href="/category/psu?q={{ r.name|urlencode }}" class="text-decoration-none">{{ r.name }}</a></td>
+          <td class="text-end">{{ r.value|num(1) }}</td>
+          <td class="text-end">{{ r.wattage|num(0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="muted">No current quality PSU prices available.</td></tr>
         {% endfor %}
         </tbody>
       </table></div>
@@ -107,48 +190,41 @@
 </div>
 
 <div class="card p-3 mt-4">
-  <h5>Get deal alerts by email</h5>
-  <p class="small mb-2">Weekly digest of the best PC part deals. No spam.</p>
-  <form id="subForm" class="d-flex gap-2" onsubmit="return subscribeEmail(event)">
-    <input type="email" id="subEmail" class="form-control form-control-sm" placeholder="you@example.com" required style="max-width:320px">
-    <button class="btn btn-sm btn-primary" type="submit">Subscribe</button>
-  </form>
-  <div id="subMsg" class="small mt-2 muted"></div>
+  <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+    <h2 class="h5 mb-0">Browse by category</h2>
+    <a href="/leaderboard" class="small">See the leaderboard &rarr;</a>
+  </div>
+  <div class="row g-2">
+    {% for k, s in cat_stats.items() %}
+    <div class="col-6 col-md-4 col-lg-3">
+      <a href="/category/{{ k }}" class="d-block text-decoration-none p-2 rounded border h-100" style="border-color:var(--border)!important">
+        <span class="d-block small fw-semibold">{{ s.title }}</span>
+        <span class="muted" style="font-size:.8rem">{% if s.from %}from {{ s.from|money }}{% else %}{{ s.count|num(0) }} parts{% endif %}</span>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 
-<div class="card p-3 mt-4">
-  <h5>Buying guides</h5>
-  <p class="small mb-2"><a href="/guide/best-budget-gaming-pc">Best budget gaming PC build</a> &mdash; $500 and $1000 build lists with links to live prices.</p>
-</div>
-
-<div class="card p-3 mt-4">
-  <h5>How "Value" is calculated</h5>
-  <p class="small mb-2">Higher Value = better bang for your buck. Rows sort by Value descending by default; entries with no price get null Value and sort to the bottom. The top lists show only current-generation parts with a real price.</p>
-  <ul class="small mb-0">
-    <li><strong>CPU</strong>: CPU Mark ÷ price (PassMark CPU Value) — more benchmark performance per dollar.</li>
-    <li><strong>GPU</strong>: G3D Mark ÷ price — more graphics performance per dollar.</li>
-    <li><strong>RAM</strong>: 1 ÷ price per GB — cheaper per gigabyte.</li>
-    <li><strong>Storage</strong>: 1 ÷ price per GB — cheaper per gigabyte.</li>
-    <li><strong>PSU</strong>: watts ÷ price — more power per dollar.</li>
-    <li><strong>Motherboard / Case / Cooler</strong>: 1 ÷ price — cheaper.</li>
-  </ul>
+<div class="row g-4 mt-1">
+  <div class="col-md-6">
+    <div class="card p-3 h-100">
+      <h2 class="h5">Buying guides</h2>
+      <p class="small mb-2"><a href="/guide/best-budget-gaming-pc">Best budget gaming PC build</a> &mdash; $500 and $1,000 starting points with live category links.</p>
+      <p class="small mb-0"><a href="/buildtemplates">Budget build templates</a> &mdash; start from a preset and adjust it in the build calculator.</p>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-3 h-100">
+      <h2 class="h5">How we rank parts</h2>
+      <p class="small mb-2">Higher value means more benchmark performance per dollar. The top lists exclude server/workstation CPUs, old GPU generations, SATA-only storage and known low-end PSU lines.</p>
+      <a class="small" href="/methodology">Read the full methodology &rarr;</a>
+    </div>
+  </div>
 </div>
 {% endblock %}
 {% block scripts %}
 <script>
-async function subscribeEmail(e){
-  e.preventDefault();
-  const email = document.getElementById("subEmail").value.trim();
-  const msg = document.getElementById("subMsg");
-  msg.textContent = "Subscribing...";
-  try {
-    const r = await fetch("/api/subscribe", { method: "POST", headers: {"Content-Type":"application/x-www-form-urlencoded"}, body: "email=" + encodeURIComponent(email) });
-    const j = await r.json();
-    msg.textContent = j.message || (j.ok ? "Subscribed!" : "Try again.");
-    if (j.ok) document.getElementById("subForm").reset();
-  } catch(err){ msg.textContent = "Could not subscribe. Try again."; }
-  return false;
-}
 let sawScraping = false;
 async function poll(){
   try {
@@ -157,7 +233,6 @@ async function poll(){
     if (j.scraping) { sawScraping = true; document.getElementById("loadingBanner").style.display = "block"; setTimeout(poll, 5000); }
     else {
       document.getElementById("loadingBanner").style.display = "none";
-      // Only reload once an actual scrape has finished; otherwise we'd loop forever.
       if (sawScraping && {{ info.counts.get('cpus',0) }} === 0) location.reload();
     }
   } catch(e){ setTimeout(poll, 5000); }

@@ -1,17 +1,16 @@
 # PC Parts Deal Finder
 
-A small web app that scrapes reliable sources for the best bang-for-your-buck PC parts
-and ranks them by value.
+A small Flask app that aggregates PC part prices and benchmarks, ranks them by
+value, and lists filtered PC hardware deals.
 
 ## Sources
 
-- **PassMark CPU Benchmarks** (cpubenchmark.net) - CPU Mark, price, CPU Value. Intel, AMD, Apple/ARM and other CPUs.
-- **PassMark Video Card Benchmarks** (videocardbenchmark.net) - G3D Mark, price, GPU value across all tier pages.
-- **PCPartPicker** (via a community mirror of pcpartpicker.com) - Memory, storage, PSU, motherboard, case, cooler, monitor, keyboard, mouse, headphone prices & specs.
-- **TechPowerUp CPU Specs** (techpowerup.com) - CPU core/thread counts and sockets.
-- **Slickdeals** (slickdeals.net) - Live PC hardware deals.
-- **Amazon / Bing image search** - Product photos (best-effort).
-- **ECB daily rates** (ecb.europa.eu) - Currency conversion for non-USD regions.
+- **PassMark CPU Benchmarks** (cpubenchmark.net) - CPU Mark and CPU prices.
+- **PassMark Video Card Benchmarks** (videocardbenchmark.net) - G3D Mark and prices.
+- **PCPartPicker** (via a community mirror) - part prices and specs.
+- **TechPowerUp CPU Specs** - core/thread counts and sockets.
+- **Slickdeals** - US PC hardware deals.
+- **ECB daily rates** - currency conversion for non-USD regions.
 
 ## Run
 
@@ -20,43 +19,63 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Then open http://127.0.0.1:5000
+Then open http://127.0.0.1:5000.
 
-On first run the app scrapes all sources (may take ~2-3 minutes) and caches to `data/cache.json`.
-Use "Refresh data" in the navbar (or `/refresh`) to re-scrape.
+On first run the app scrapes all sources (may take a few minutes) and caches the
+result. The scheduler and the GitHub Actions workflow keep the US snapshot up to
+date. Other regions are collected on demand when a visitor selects them; until a
+snapshot exists, the page says so rather than showing US prices in another
+currency.
 
-## How "Value" is calculated
+The manual refresh button is disabled by default. To show it on a private
+instance, set `ENABLE_REFRESH=1`. `/refresh` and `/api/scrape` also require
+`SCRAPE_TOKEN` in production.
 
-Higher Value = better bang for your buck. Rows are sorted by Value descending by default.
+## How value is calculated
 
-- **CPU**: CPU Mark ÷ price (PassMark CPU Value) — more benchmark performance per dollar.
-- **GPU**: G3D Mark ÷ price — more graphics performance per dollar.
-- **RAM**: 1 ÷ price per GB — cheaper per gigabyte.
-- **Storage**: 1 ÷ price per GB — cheaper per gigabyte.
-- **PSU**: watts ÷ price — more power per dollar.
-- **Motherboard / Case / Cooler**: 1 ÷ price — cheaper.
+Higher value means more performance per dollar. Rows are sorted by value
+descending by default; rows without a real price are pushed to the bottom.
 
-Entries with no price get a null Value and sort to the bottom.
+- **CPU**: CPU Mark / price.
+- **GPU**: G3D Mark / price.
+- **RAM / storage**: 1 / price per GB.
+- **PSU**: watts / price.
+- **Motherboard / case / cooler**: 1 / price.
 
-## Live site
+Front-page picks use quality floors:
 
-https://pc-parts-an-deals.onrender.com/
+- Consumer CPUs only: Ryzen 5000/7000/8000/9000, Intel 12th gen or newer.
+- Current GPUs only: RTX 40/50, RX 7000/9000, Intel Arc A/B.
+- NVMe storage only on the front page; the full table still includes SATA.
+- 80+ Bronze or better PSUs, excluding known low-end lines from the top picks.
+- Prices older than 14 days pause the value rankings instead of showing stale
+  numbers as current.
+- Price changes over 50% are hidden as likely source changes.
 
 ## Features
 
-- Dashboard with top value picks per category and a loading banner during background scraping.
-- Per-category tables with search, brand/form-factor/storage-type filters, min/max price, min/max cores (CPU), sort, pagination.
-- Product images pulled from manufacturer/retailer sources.
-- Price change (Δ%) tracking vs. previous scrape, with price history charts per part.
-- "Buy" column with live retailer search links (Amazon, Newegg, B&H, Best Buy, Micro Center) for current prices and inventory.
-- Live PC hardware deals page (Slickdeals) with newest/price sorting.
-- Prebuilt PCs category.
-- Build cost calculator with auto-suggest best value build and export to PCPartPicker.
-- Saved builds (no account) with save/load/delete.
-- Watchlist with price alerts and target prices.
-- Build compatibility checker (socket, RAM type, PSU wattage).
-- Compare feature for side-by-side component comparison.
-- Dark/light theme toggle.
-- CSV export per category.
-- Source attribution on every row.
-- 10-minute cache refresh and GitHub Actions keepalive for free hosting.
+- Dashboard with current best-value CPU/GPU/NVMe/PSU picks and region-aware
+  retailer links.
+- Category tables with search, brand, price, category-specific filters, sorting,
+  pagination and CSV export.
+- Price history charts where at least two snapshots exist.
+- Slickdeals feed filtered to PC parts, deduplicated, with merchant names,
+  relative timestamps, pagination and USD labels.
+- Build calculator with auto-suggest, budget auto-build, compatibility checks and
+  shareable URLs.
+- Saved builds, local watchlist, compare selections and theme choice stored in
+  browser local storage.
+- No account required.
+- Cookie consent gate: no advertising script loads unless the visitor accepts.
+- Accessibility/SEO checks: Lighthouse 100/100/100 on the dashboard and category
+  pages.
+
+## What is intentionally not promised
+
+- Prices are estimates from public sources, not live retailer inventory.
+- There is no email newsletter or email price-alert service yet. The watchlist
+  checks target prices when you open the watchlist page.
+- Advertising is loaded only after consent. A Google-certified CMP is still
+  recommended for EEA/UK traffic before running ads there.
+- Individual part detail pages are not implemented yet. Category links deep-link
+  to a filtered category view.

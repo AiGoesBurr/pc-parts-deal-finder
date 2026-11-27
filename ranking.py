@@ -8,9 +8,36 @@ RYZEN_RE = re.compile(r"Ryzen (?:AI )?(?:\d )?(?:PRO )?(\d)(\d{3})")
 INTEL_RE = re.compile(r"Core i([3579])-(\d{4,5})")
 ULTRA_RE = re.compile(r"Core Ultra [579] (\d{3})")
 MOBILE_RE = re.compile(r"\d{3,5}(?:HX|HK|HS|H|U|Y|P|G\d)(?![A-Za-z0-9])")
-GPU_RE = re.compile(r"GeForce RTX (\d{4})|GeForce GTX 16\d{2}|Radeon RX (\d{4})|Arc [AB]\d{3}")
+# Server and workstation parts are not useful "best value" picks for a desktop
+# builder, even when they happen to have a price.
+SERVER_RE = re.compile(
+    r"EPYC|Threadripper|Xeon|Opteron|Atom|Celeron|Pentium|Athlon|"
+    r"Embedded|Workstation|Server",
+    re.I,
+)
+# Only current retail generations are ranked. Older cards are still visible in
+# the full table, but they no longer win the "best value" lists.
+GPU_RE = re.compile(
+    r"GeForce RTX (?:40|50)\d{2}|Radeon RX (?:7|9)\d{3}|Arc [AB]\d{3}",
+    re.I,
+)
 GPU_EXCLUDE_RE = re.compile(
     r"Laptop|Mobile|Max-Q|Notebook|Mobility|Quadro|FirePro|FireGL|Radeon Pro|RTX PRO|Tesla|GRID|Embedded|Vega|Iris|UHD",
+    re.I,
+)
+PSU_GOOD_RE = re.compile(
+    r"SeaSonic|Seasonic|Super Flower|Corsair (?:RM|SF|HX|AX|TX)\d|"
+    r"EVGA SuperNOVA|be quiet|MSI MPG|MSI MAG|NZXT C\d|Toughpower GF|"
+    r"MWE Gold|Gigabyte UD|AORUS|ROG |TUF |Lian Li|Montech Titan|XPG Core|"
+    r"Deepcool P[XM]|Phanteks AMP|SilverStone|Revolution|Hydro G|Focus|"
+    r"PRIME|Vertex|Dark Power|Straight Power|Pure Power",
+    re.I,
+)
+PSU_BAD_RE = re.compile(
+    r"Apevia|Raidmax|GAMDIAS|Rosewill ARC|Cougar VTE|Gigabyte P-B|EVGA B[AR]\b|"
+    r"Great Wall|Huntkey|Segotep|KOLINK|Mars Gaming|Tacens|TooQ|Sharkoon|"
+    r"LC-Power|Inter-Tech|Chieftec|Aerocool|Xigmatek|Zalman|Raptor|"
+    r"Combat|PowerMan",
     re.I,
 )
 
@@ -47,14 +74,15 @@ def cpu_socket(name):
 
 def is_current_cpu(name):
     name = name or ""
-    if MOBILE_RE.search(name):
+    if MOBILE_RE.search(name) or SERVER_RE.search(name):
         return False
     m = RYZEN_RE.search(name)
     if m:
-        return m.group(1) in "345789"
+        # Ryzen 5000/7000/8000/9000 are the current consumer generations.
+        return m.group(1) in "5789"
     m = INTEL_RE.search(name)
     if m:
-        return _intel_gen(m.group(2)) >= 10
+        return _intel_gen(m.group(2)) >= 12
     return bool(ULTRA_RE.search(name))
 
 
@@ -62,14 +90,26 @@ def is_current_gpu(name):
     name = name or ""
     if GPU_EXCLUDE_RE.search(name):
         return False
-    m = GPU_RE.search(name)
-    if not m:
+    return bool(GPU_RE.search(name))
+
+
+def is_quality_psu(r):
+    """A conservative shortlist for the front-page value picks.
+
+    The full table still shows every 80+ unit, but the front page should not
+    recommend known low-end lines just because they are cheap per watt.
+    """
+    name = r.get("name") or ""
+    if PSU_BAD_RE.search(name):
         return False
-    if m.group(1):
-        return m.group(1)[0] in "2345"
-    if m.group(2):
-        return m.group(2)[0] in "56789"
-    return True
+    if PSU_GOOD_RE.search(name):
+        return True
+    return r.get("efficiency") in ("80+ Gold", "80+ Platinum", "80+ Titanium")
+
+
+def is_nvme_storage(r):
+    text = ((r.get("interface") or "") + " " + (r.get("form_factor") or "")).lower()
+    return "nvme" in text or "m.2" in text or "m2" in text
 
 
 def gpu_price_floor(score):

@@ -1,27 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Search - PC Parts Deal Finder{% endblock %}
+{% block title %}Search{% if q %} - {{ q }}{% endif %} - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<h2>Search results for "{{ q }}"</h2>
-{% if not results %}
-<p class="muted">No matching components found.</p>
+<h1 class="h2">Search results{% if q %} for "{{ q }}"{% endif %}</h1>
+{% if not q %}
+<p class="muted">Enter a part name or brand above. Try <a href="/category/cpu">CPUs</a>, <a href="/category/gpu">GPUs</a>, or <a href="/category/storage">storage</a>.</p>
+{% elif not results %}
+<p class="muted">No matching components found. Try a shorter name, e.g. "4070" or "Ryzen 7".</p>
 {% else %}
 {% for cat, (meta, rows) in results.items() %}
 <div class="card p-3 mb-3">
-  <h5>{{ meta.title }} <span class="muted small">({{ rows|length }} shown)</span></h5>
-  <table class="table table-sm">
-    <thead><tr><th>Name</th><th>Brand</th><th>Price</th><th>Value</th><th></th></tr></thead>
+  <h2 class="h5">{{ meta.title }} <span class="muted small">({{ rows|length }} shown)</span></h2>
+  <div class="table-responsive">
+  <table class="table table-sm mb-0">
+    <thead><tr><th scope="col">Name</th><th scope="col">Brand</th><th scope="col" class="text-end">Price</th><th scope="col" class="text-end">Value</th><th scope="col"></th></tr></thead>
     <tbody>
       {% for r in rows %}
       <tr>
         <td class="small">{{ r.name }}</td>
         <td>{{ r.brand }}</td>
-        <td>{{ currency_symbol }}{{ r.price }}</td>
-        <td>{{ r.value }}</td>
-        <td><a href="/category/{{ cat }}" class="small">View</a></td>
+        <td class="text-end">{% if r.price %}{{ r.price|money }}{% else %}<span class="muted">-</span>{% endif %}</td>
+        <td class="text-end">{% if r.value %}{{ r.value|num(1) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+        <td><a href="/category/{{ cat }}?q={{ r.name|urlencode }}" class="small">View {{ meta.title }}</a></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% endfor %}
 {% endif %}

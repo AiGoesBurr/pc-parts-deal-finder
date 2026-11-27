@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Sources - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<h2>Reliable sources</h2>
+<h1 class="h2">Reliable sources</h1>
 <p class="muted">This app aggregates from the following sources.</p>
 <ul>
   <li><strong>PassMark CPU Benchmarks</strong> (cpubenchmark.net) — CPU Mark scores, prices, CPU Value. Intel, AMD, Apple/ARM lists.</li>
@@ -11,12 +11,13 @@
   <li><strong>Slickdeals</strong> (slickdeals.net) — Live PC hardware deals.</li>
   <li><strong>ECB daily rates</strong> (ecb.europa.eu) — Currency conversion for non-USD regions.</li>
 </ul>
-<h4>Cache status</h4>
-<p>Last updated: {{ info.saved_at }}</p>
+<h2 class="h5">Cache status</h2>
+<p>Last updated: {% if info.saved_at %}{{ info.saved_at|ago }}{% else %}never{% endif %}</p>
 <ul>
   {% for k,v in info.counts.items() %}
-  <li>{{ k }}: {{ v }}</li>
+  <li>{{ k }}: {{ v|num(0) }}</li>
   {% endfor %}
 </ul>
-<p><a href="/refresh">Refresh now</a></p>
+<p class="muted small">Refreshes run on a schedule. The public site does not expose a manual refresh button.</p>
+<p><a href="/methodology">How we rank parts</a> &middot; <a href="/">Back to the dashboard</a></p>
 {% endblock %}

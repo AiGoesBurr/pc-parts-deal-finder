@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Compatibility Checker - PC Parts Deal Finder{% endblock %}
 {% block content %}
-<h2>Build compatibility checker</h2>
+<h1 class="h2">Build compatibility checker</h1>
 <p class="muted small">Select parts to validate socket, memory type, and power requirements.</p>
 <div class="row g-3">
-  <div class="col-md-6"><label class="form-label small">CPU</label><select id="sel_cpu" class="form-select form-select-sm"></select></div>
-  <div class="col-md-6"><label class="form-label small">Motherboard</label><select id="sel_mb" class="form-select form-select-sm"></select></div>
-  <div class="col-md-6"><label class="form-label small">RAM</label><select id="sel_ram" class="form-select form-select-sm"></select></div>
-  <div class="col-md-6"><label class="form-label small">GPU (optional)</label><select id="sel_gpu" class="form-select form-select-sm"></select></div>
-  <div class="col-md-6"><label class="form-label small">PSU</label><select id="sel_psu" class="form-select form-select-sm"></select></div>
+  <div class="col-md-6"><label class="form-label small" for="sel_cpu">CPU</label><select id="sel_cpu" class="form-select form-select-sm"></select></div>
+  <div class="col-md-6"><label class="form-label small" for="sel_mb">Motherboard</label><select id="sel_mb" class="form-select form-select-sm"></select></div>
+  <div class="col-md-6"><label class="form-label small" for="sel_ram">RAM</label><select id="sel_ram" class="form-select form-select-sm"></select></div>
+  <div class="col-md-6"><label class="form-label small" for="sel_gpu">GPU (optional)</label><select id="sel_gpu" class="form-select form-select-sm"></select></div>
+  <div class="col-md-6"><label class="form-label small" for="sel_psu">PSU</label><select id="sel_psu" class="form-select form-select-sm"></select></div>
 </div>
 <button class="btn btn-sm btn-primary mt-3" onclick="check()">Check compatibility</button>
 <div id="result" class="mt-3"></div>
@@ -16,7 +16,8 @@
 {% block scripts %}
 <script>
 const cache = {};
-async function loadCat(cat){ if(cache[cat]) return cache[cat]; const r=await fetch("/api/data/"+cat+"?sort=price&order=asc&limit=100000"); const j=await r.json(); cache[cat]=j.rows; return j.rows; }
+const REGION = "{{ region }}";
+async function loadCat(cat){ if(cache[cat]) return cache[cat]; try { const r=await fetch("/api/data/"+cat+"?sort=price&order=asc&limit=1500&region="+encodeURIComponent(REGION)); const j=await r.json(); cache[cat]=j.rows||[]; } catch(e){ cache[cat]=[]; } return cache[cat]; }
 function esc(s){ if(s===null||s===undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function opt(rows, placeholder){ return `<option value="">${esc(placeholder)}</option>` + rows.map(r=>`<option value="${esc(r.name)}">${esc(r.name)}</option>`).join(""); }
 async function init(){
