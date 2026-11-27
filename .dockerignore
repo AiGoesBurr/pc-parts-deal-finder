@@ -1,7 +1,10 @@
 .git
 __pycache__
 *.pyc
-data
+# Keep the committed US snapshot so a fresh container starts with data.
+# Local/generated region caches stay out of the image.
+data/*
+!data/cache_us.json.gz
 run.log
 run.err
 .env

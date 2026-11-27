@@ -224,6 +224,21 @@
 </div>
 {% endblock %}
 {% block scripts %}
+{% if not data_saved_ts %}
+<script>
+let homeTries = 0;
+async function waitForData(){
+  homeTries++;
+  try {
+    const r = await fetch("/api/data/cpu?region={{ region }}&limit=1");
+    const j = await r.json();
+    if ((j.total || 0) > 0) { location.reload(); return; }
+  } catch (e) {}
+  if (homeTries < 24) setTimeout(waitForData, 5000);
+}
+waitForData();
+</script>
+{% else %}
 <script>
 let sawScraping = false;
 async function poll(){
@@ -239,4 +254,5 @@ async function poll(){
 }
 poll();
 </script>
+{% endif %}
 {% endblock %}

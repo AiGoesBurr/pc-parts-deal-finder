@@ -14,15 +14,15 @@
 {% if not data_saved_ts %}
 <div class="alert alert-info small">No price data for {{ region|upper }} yet. The scraper has been asked to gather it; check back in a few minutes or <a href="{{ request.path }}?region=us{% if request.args.get('q') %}&q={{ request.args.get('q')|urlencode }}{% endif %}">switch to US data</a>.</div>
 <script>
-let sawRegionScrape = false;
+let regionTries = 0;
 async function pollRegion(){
+  regionTries++;
   try {
-    const r = await fetch("/api/status");
+    const r = await fetch("/api/data/{{ cat }}?region={{ region }}&limit=1&eligible=1");
     const j = await r.json();
-    if (j.scraping) { sawRegionScrape = true; setTimeout(pollRegion, 5000); }
-    else if (sawRegionScrape) { location.reload(); }
-    else { setTimeout(pollRegion, 5000); }
-  } catch (e) { setTimeout(pollRegion, 5000); }
+    if ((j.total || 0) > 0) { location.reload(); return; }
+  } catch (e) {}
+  if (regionTries < 24) setTimeout(pollRegion, 5000);
 }
 pollRegion();
 </script>
@@ -316,7 +316,12 @@ async function loadData(){
 }
 
 function render(){
-  const cols = COLUMNS[CAT];
+  const allCols = COLUMNS[CAT];
+  const always = new Set(["sel", "name", "hist", "watch", "buy", "price"]);
+  // Hide columns that have no values on this page (e.g. PassMark GPU rows do
+  // not carry VRAM or length). Empty columns are noise and break mobile layout.
+  const slice = allRows;
+  const cols = allCols.filter(c => always.has(c) || slice.some(r => r[c] !== null && r[c] !== undefined && r[c] !== ""));
   const thead = document.getElementById("thead");
   thead.innerHTML = "<tr>" + cols.map(c=> {
     if (c==="sel") return `<th><input type="checkbox" id="selectAll" aria-label="Select all rows"></th>`;
@@ -335,7 +340,6 @@ function render(){
   };
   const tbody = document.getElementById("tbody");
   // The API already paginates; do not slice a second time.
-  const slice = allRows;
   tbody.innerHTML = slice.map(r => "<tr>" + cols.map(c=> {
     if (c==="name") {
       return `<td><a href="${buyUrl(r.name)}" target="_blank" rel="noopener" class="text-decoration-none">${fmt(r[c])}</a></td>`;
